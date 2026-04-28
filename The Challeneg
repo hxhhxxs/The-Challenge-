@@ -1,0 +1,155 @@
+thechallenge
+{
+  "name": "thechallenge",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "framer-motion": "^11.0.0",
+    "lucide-react": "^0.300.0",
+    "next": "14.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  }
+}
+export const metadata = {
+  title: "Thechallenge",
+  description: "Learn, Master, Conquer"
+};
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en">
+      <body style={{ margin: 0 }}>{children}</body>
+    </html>
+  );
+}
+"use client";
+
+import React, { useState } from "react";
+
+export default function Page() {
+  const [files, setFiles] = useState([]);
+  const [progress, setProgress] = useState(0);
+  const [quizScore, setQuizScore] = useState(0);
+
+  const handleUpload = (e) => {
+    const newFiles = Array.from(e.target.files);
+    setFiles([...files, ...newFiles]);
+
+    // fake processing progress
+    let p = 0;
+    const interval = setInterval(() => {
+      p += 20;
+      setProgress(p);
+      if (p >= 100) clearInterval(interval);
+    }, 400);
+  };
+
+  return (
+    <div style={{ padding: 40, fontFamily: "Arial", background: "#0f172a", color: "white", minHeight: "100vh" }}>
+      <h1 style={{ fontSize: 40 }}>Thechallenge</h1>
+      <p>Upload → Learn → Quiz → Master</p>
+
+      {/* Upload */}
+      <div style={{ marginTop: 30 }}>
+        <input
+          type="file"
+          multiple
+          onChange={handleUpload}
+          accept=".pdf,.docx,.pptx,.png,.jpg,.jpeg"
+        />
+      </div>
+
+      {/* File List */}
+      <div style={{ marginTop: 20 }}>
+        {files.map((f, i) => (
+          <div key={i}>{f.name}</div>
+        ))}
+      </div>
+
+      {/* Progress */}
+      <div style={{ marginTop: 30 }}>
+        <p>Structuring Progress: {progress}%</p>
+        <div style={{ height: 10, background: "#333", borderRadius: 10 }}>
+          <div style={{ width: `${progress}%`, height: "100%", background: "green" }} />
+        </div>
+      </div>
+
+      {/* Learning Objectives */}
+      <div style={{ marginTop: 30 }}>
+        <h2>Learning Objectives</h2>
+        <ul>
+          <li>All key concepts extracted</li>
+          <li>No detail left behind</li>
+          <li>Professor focus highlighted</li>
+          <li>80% quiz required</li>
+        </ul>
+      </div>
+
+      {/* Professor Focus */}
+      <div style={{ marginTop: 30 }}>
+        <h2>Professor Focus</h2>
+        <ul>
+          <li>Repeated concepts</li>
+          <li>Important warnings</li>
+          <li>Exam hints</li>
+        </ul>
+      </div>
+
+      {/* Quiz */}
+      <div style={{ marginTop: 30 }}>
+        <h2>Quiz (Need 80%)</h2>
+
+        {["Correct Answer", "Close Answer", "Wrong", "Wrong"].map((a, i) => (
+          <button
+            key={i}
+            onClick={() => {
+              if (i === 0) setQuizScore(Math.min(100, quizScore + 25));
+              else setQuizScore(Math.max(0, quizScore - 10));
+            }}
+            style={{
+              display: "block",
+              marginTop: 10,
+              padding: 10,
+              width: "100%"
+            }}
+          >
+            {a}
+          </button>
+        ))}
+
+        <p style={{ marginTop: 10 }}>Score: {quizScore}%</p>
+
+        <button
+          disabled={quizScore < 80}
+          style={{
+            marginTop: 20,
+            padding: 15,
+            background: quizScore >= 80 ? "green" : "gray",
+            color: "white",
+            width: "100%"
+          }}
+        >
+          {quizScore >= 80 ? "Unlocked Next Topic" : "Need 80%"}
+        </button>
+      </div>
+    </div>
+  );
+}
+export function Button({ children, ...props }) {
+  return <button {...props}>{children}</button>;
+}
+export function Card({ children }) {
+  return <div>{children}</div>;
+}
+
+export function CardContent({ children }) {
+  return <div>{children}</div>;
+}
+npm install
+npm run dev
