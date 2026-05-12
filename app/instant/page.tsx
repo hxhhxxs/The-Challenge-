@@ -76,6 +76,16 @@ function ageFromDob(dob: string) {
   return String(age);
 }
 
+function errorToMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return "Unknown error occurred.";
+  }
+}
+
 function isComplete(profile: Profile) {
   return Object.values(profile).every((value) => String(value).trim().length > 0);
 }
@@ -159,12 +169,12 @@ export default function InstantPage() {
 
       const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({ email, password: form.password });
       if (loginError) {
-        throw new Error(`Account was created but login is still blocked by Supabase: ${loginError.message}. In Supabase, turn OFF Authentication > Sign In / Providers > Email > Confirm email, then create a new test account.`);
+        throw new Error(`Account was created but login is blocked: ${loginError.message}`);
       }
       if (!loginData.user) throw new Error("Account created, but Supabase did not return a user session.");
       await enterApp(loginData.user, starter);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not create account.");
+      setMessage(`Create account error: ${errorToMessage(error)}`);
     } finally {
       setBusy(false);
     }
@@ -180,7 +190,7 @@ export default function InstantPage() {
       if (!data.user) throw new Error("Could not log in.");
       await enterApp(data.user);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Wrong email or password.");
+      setMessage(`Login error: ${errorToMessage(error)}`);
     } finally {
       setBusy(false);
     }
