@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createSupabaseBrowserClient, hasSupabaseEnv } from "@/lib/supabase/client";
 
-type Account = { username: string; password: string };
 type PersonalGoal = { name: string; endGoal: string; dailyTask: string; frequency: string; tracking: string };
 type Profile = {
   name: string; age: string; height: string; currentWeight: string; goalWeight: string;
@@ -18,9 +18,19 @@ type CheckIn = {
   randomTasksDone: number; joyTaskDone: boolean; moneySpent: string; restaurantVisit: boolean;
   screenTime: string; tvTime: string; sleepHours: string; mood: string; notes: string; points: number;
 };
-
+type AuthForm = { name: string; email: string; username: string; password: string; confirmPassword: string; dob: string };
 type Stage = "auth" | "onboarding" | "dashboard";
 type AuthMode = "create" | "login";
+
+type UserRecord = {
+  id: string;
+  email: string;
+  username: string;
+  name: string;
+  dob?: string | null;
+  onboarding_complete: boolean;
+  onboarding_draft?: Profile | null;
+};
 
 const defaultProfile: Profile = {
   name: "", age: "", height: "", currentWeight: "", goalWeight: "", startDate: "", endDate: "",
@@ -51,8 +61,8 @@ function n(value: string, fallback = 0) { const parsed = Number(value); return N
 function daysBetween(start: string, end: string) { if (!start || !end) return 0; return Math.max(1, Math.ceil((new Date(end).getTime() - new Date(start).getTime()) / 86400000) + 1); }
 function dayOfChallenge(start: string) { if (!start) return 1; return Math.max(1, Math.ceil((Date.now() - new Date(start).getTime()) / 86400000) + 1); }
 function pickTasks(bank: string[], count: number, seed: number) { const index = Math.abs(seed) % bank.length; return [...bank.slice(index), ...bank.slice(0, index)].slice(0, count); }
-function accountKey(username: string) { return `challenge-user-${username.toLowerCase().trim()}`; }
 function clean(value: string) { return value.trim(); }
+function mergeProfile(base: Profile, incoming: Partial<Profile> | null | undefined): Profile { return { ...base, ...(incoming || {}), personalGoals: incoming?.personalGoals?.length === 2 ? incoming.personalGoals : base.personalGoals }; }
 
 function getOnboardingErrors(profile: Profile) {
   const errors: string[] = [];
@@ -95,57 +105,118 @@ function StatCard({ label, value, hint }: { label: string; value: string; hint: 
 export default function Home() {
   const [stage, setStage] = useState<Stage>("auth");
   const [authMode, setAuthMode] = useState<AuthMode>("create");
-  const [auth, setAuth] = useState<Account>({ username: "", password: "" });
+  const [auth, setAuth] = useState<AuthForm>({ name: "", email: "", username: "", password: "", confirmPassword: "", dob: "" });
   const [authError, setAuthError] = useState("");
+  const [authNotice, setAuthNotice] = useState("");
   const [onboardingError, setOnboardingError] = useState("");
-  const [currentUser, setCurrentUser] = useState("");
+  const [currentUser, setCurrentUser] = useState<UserRecord | null>(null);
   const [profile, setProfile] = useState<Profile>(defaultProfile);
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
   const [entry, setEntry] = useState<Omit<CheckIn, "points">>(defaultEntry);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const session = localStorage.getItem("challenge-current-user");
-    if (!session) return;
-    const stored = localStorage.getItem(accountKey(session));
-    if (!stored) return;
-    const data = JSON.parse(stored) as { profile?: Profile; checkIns?: CheckIn[]; onboarded?: boolean };
-    const restoredProfile = data.profile || defaultProfile;
-    setCurrentUser(session); setProfile(restoredProfile); setCheckIns(data.checkIns || []); setStage(data.onboarded && getOnboardingErrors(restoredProfile).length === 0 ? "dashboard" : "onboarding");
+    async function loadSession() {
+      if (!hasSupabaseEnv()) { setLoading(false); return; }
+      try {
+        const supabase = createSupabaseBrowserClient();
+        const { data: userData } = await supabase.auth.getUser();
+        if (!userData.user) { setLoading(false); return; }
+        const { data: userRow, error } = await supabase.from("users").select("*").eq("id", userData.user.id).single();
+        if (error) throw error;
+        const typedUser = userRow as UserRecord;
+        const nextProfile = mergeProfile({ ...defaultProfile, name: typedUser.name }, typedUser.onboarding_draft || undefined);
+        setCurrentUser(typedUser);
+        setProfile(nextProfile);
+        setStage(typedUser.onboarding_complete && getOnboardingErrors(nextProfile).length === 0 ? "dashboard" : "onboarding");
+      } catch (error) {
+        setAuthError(error instanceof Error ? error.message : "Could not load Supabase session.");
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadSession();
   }, []);
 
-  function saveUser(nextProfile = profile, nextCheckIns = checkIns, onboarded = stage === "dashboard") {
-    if (!currentUser) return;
-    const existing = JSON.parse(localStorage.getItem(accountKey(currentUser)) || "{}");
-    localStorage.setItem(accountKey(currentUser), JSON.stringify({ ...existing, profile: nextProfile, checkIns: nextCheckIns, onboarded }));
+  async function saveDraft(nextProfile = profile, complete = false) {
+    if (!currentUser || !hasSupabaseEnv()) return;
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase.from("users").update({ onboarding_draft: nextProfile, onboarding_complete: complete, updated_at: new Date().toISOString() }).eq("id", currentUser.id);
+    if (error) throw error;
+    setCurrentUser({ ...currentUser, onboarding_complete: complete, onboarding_draft: nextProfile });
   }
 
-  function handleAuth() {
+  async function handleAuth() {
+    setAuthError(""); setAuthNotice("");
+    if (!hasSupabaseEnv()) { setAuthError("Supabase is not configured yet. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel."); return; }
+    const supabase = createSupabaseBrowserClient();
+    const email = auth.email.trim().toLowerCase();
     const username = auth.username.trim().toLowerCase();
-    if (!username || !auth.password) { setAuthError("Enter a username and password."); return; }
-    if (!/^[a-z0-9_]{3,20}$/.test(username)) { setAuthError("Username must be 3–20 lowercase letters, numbers, or underscores."); return; }
-    if (auth.password.length < 8) { setAuthError("Password must be at least 8 characters for the real app standard."); return; }
-    const key = accountKey(username); const existing = localStorage.getItem(key);
-    if (authMode === "create") {
-      if (existing) { setAuthError("That username already exists on this device. Log in instead."); return; }
-      localStorage.setItem(key, JSON.stringify({ password: auth.password, profile: defaultProfile, checkIns: [], onboarded: false }));
-      localStorage.setItem("challenge-current-user", username); setCurrentUser(username); setProfile(defaultProfile); setCheckIns([]); setAuthError(""); setStage("onboarding");
-      return;
+    if (!email || !auth.password) { setAuthError("Enter email and password."); return; }
+
+    try {
+      if (authMode === "create") {
+        if (!auth.name.trim()) { setAuthError("Enter your full name."); return; }
+        if (!/^[a-z0-9_]{3,20}$/.test(username)) { setAuthError("Username must be 3–20 lowercase letters, numbers, or underscores."); return; }
+        if (auth.password.length < 8) { setAuthError("Password must be at least 8 characters."); return; }
+        if (auth.password !== auth.confirmPassword) { setAuthError("Passwords do not match."); return; }
+        if (!auth.dob) { setAuthError("Enter your date of birth."); return; }
+
+        const { data: existingUsername } = await supabase.from("users").select("username").eq("username", username).maybeSingle();
+        if (existingUsername) { setAuthError("That username is taken."); return; }
+
+        const { data, error } = await supabase.auth.signUp({ email, password: auth.password, options: { data: { name: auth.name.trim(), username, dob: auth.dob } } });
+        if (error) throw error;
+        if (!data.user) throw new Error("Could not create account.");
+
+        const { error: insertError } = await supabase.from("users").insert({
+          id: data.user.id,
+          email,
+          username,
+          name: auth.name.trim(),
+          dob: auth.dob,
+          role: "user",
+          email_verified: Boolean(data.session),
+          onboarding_complete: false,
+          onboarding_draft: { ...defaultProfile, name: auth.name.trim(), age: ageFromDob(auth.dob) },
+        });
+        if (insertError) throw insertError;
+
+        const newUser: UserRecord = { id: data.user.id, email, username, name: auth.name.trim(), dob: auth.dob, onboarding_complete: false, onboarding_draft: { ...defaultProfile, name: auth.name.trim(), age: ageFromDob(auth.dob) } };
+        setCurrentUser(newUser);
+        setProfile(mergeProfile(defaultProfile, newUser.onboarding_draft));
+        setAuthNotice(data.session ? "Account created. Finish onboarding." : "Account created. If email verification is enabled, check your email, then log in.");
+        setStage(data.session ? "onboarding" : "auth");
+        setAuthMode("login");
+        return;
+      }
+
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password: auth.password });
+      if (error) throw error;
+      if (!data.user) throw new Error("Could not log in.");
+      const { data: userRow, error: profileError } = await supabase.from("users").select("*").eq("id", data.user.id).single();
+      if (profileError) throw profileError;
+      const typedUser = userRow as UserRecord;
+      const nextProfile = mergeProfile({ ...defaultProfile, name: typedUser.name }, typedUser.onboarding_draft || undefined);
+      setCurrentUser(typedUser);
+      setProfile(nextProfile);
+      setStage(typedUser.onboarding_complete && getOnboardingErrors(nextProfile).length === 0 ? "dashboard" : "onboarding");
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Authentication failed.");
     }
-    if (!existing) { setAuthError("No account found with that username on this device."); return; }
-    const data = JSON.parse(existing);
-    if (data.password !== auth.password) { setAuthError("Wrong password."); return; }
-    const nextProfile = data.profile || defaultProfile;
-    localStorage.setItem("challenge-current-user", username); setCurrentUser(username); setProfile(nextProfile); setCheckIns(data.checkIns || []); setAuthError(""); setStage(data.onboarded && getOnboardingErrors(nextProfile).length === 0 ? "dashboard" : "onboarding");
   }
 
-  function logout() { localStorage.removeItem("challenge-current-user"); setCurrentUser(""); setAuth({ username: "", password: "" }); setStage("auth"); }
+  async function logout() {
+    if (hasSupabaseEnv()) await createSupabaseBrowserClient().auth.signOut();
+    setCurrentUser(null); setAuth({ name: "", email: "", username: "", password: "", confirmPassword: "", dob: "" }); setStage("auth");
+  }
   function updateProfile<K extends keyof Profile>(key: K, value: Profile[K]) { setProfile((prev) => ({ ...prev, [key]: value })); setOnboardingError(""); }
-  function finishOnboarding() {
+  async function finishOnboarding() {
     const errors = getOnboardingErrors(profile);
     if (errors.length > 0) { setOnboardingError(`Finish these first: ${errors.slice(0, 8).join(", ")}${errors.length > 8 ? "..." : ""}`); return; }
-    saveUser(profile, checkIns, true); setStage("dashboard");
+    try { await saveDraft(profile, true); setStage("dashboard"); } catch (error) { setOnboardingError(error instanceof Error ? error.message : "Could not save onboarding."); }
   }
-  function submitCheckIn() { const points = calculatePoints(profile, entry); const updated = [{ ...entry, points }, ...checkIns]; setCheckIns(updated); saveUser(profile, updated, true); setEntry(defaultEntry); }
+  function submitCheckIn() { const points = calculatePoints(profile, entry); const updated = [{ ...entry, points }, ...checkIns]; setCheckIns(updated); setEntry(defaultEntry); }
 
   const totalPoints = useMemo(() => Math.round(checkIns.reduce((sum, item) => sum + item.points, 0) * 10) / 10, [checkIns]);
   const cappedPoints = Math.min(100, Math.max(0, totalPoints));
@@ -156,19 +227,21 @@ export default function Home() {
   const todayTasks = pickTasks(smallTaskBank, 3, currentDay + checkIns.length);
   const weeklyTask = pickTasks(weeklyTaskBank, 1, Math.floor(currentDay / 7))[0];
   const joyTask = pickTasks(joyTaskBank, 1, currentDay + 2)[0];
-  const leaders = [{ name: profile.name || currentUser || "You", points: cappedPoints, streak: checkIns.length, status }];
+  const leaders = [{ name: profile.name || currentUser?.username || "You", points: cappedPoints, streak: checkIns.length, status }];
   const onboardingMissing = getOnboardingErrors(profile).length;
+
+  if (loading) return <main className="flex min-h-screen items-center justify-center bg-[#fff8ed] p-6"><div className={cardClass}><p className="font-black">Loading The Challenge...</p></div></main>;
 
   if (stage === "auth") {
     return <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,#dcfce7,transparent_32%),#fff8ed] px-4 py-8 text-slate-900"><div className="mx-auto grid max-w-6xl items-center gap-8 lg:grid-cols-2">
-      <section className="rounded-[2rem] bg-slate-950 p-8 text-white shadow-2xl md:p-12"><p className="mb-4 inline-flex rounded-full bg-emerald-500/15 px-4 py-2 text-sm font-bold text-emerald-200">The Challenge</p><h1 className="text-5xl font-black tracking-tight">Create your account first.</h1><p className="mt-5 text-lg leading-8 text-slate-300">Then the app will collect your information, build your personalized plan, and send you to your main dashboard.</p><div className="mt-8 grid gap-3 text-sm text-slate-200"><p>1. Username + password</p><p>2. Personal onboarding</p><p>3. Main dashboard + daily missions</p></div></section>
-      <section className={cardClass}><div className="mb-5 flex rounded-2xl bg-slate-100 p-1"><button onClick={() => setAuthMode("create")} className={`flex-1 rounded-xl px-4 py-3 text-sm font-black ${authMode === "create" ? "bg-white shadow" : "text-slate-500"}`}>Create account</button><button onClick={() => setAuthMode("login")} className={`flex-1 rounded-xl px-4 py-3 text-sm font-black ${authMode === "login" ? "bg-white shadow" : "text-slate-500"}`}>Log in</button></div><div className="space-y-4"><Field label="Username" hint="3–20 lowercase letters, numbers, or underscores."><input className={inputClass} value={auth.username} onChange={(e) => setAuth({ ...auth, username: e.target.value })} placeholder="choose_username" /></Field><Field label="Password" hint="At least 8 characters for the MVP."><input className={inputClass} type="password" value={auth.password} onChange={(e) => setAuth({ ...auth, password: e.target.value })} placeholder="Create a password" /></Field>{authError && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700">{authError}</p>}<button onClick={handleAuth} className="w-full rounded-full bg-emerald-600 px-5 py-3 font-black text-white">{authMode === "create" ? "Create account and start" : "Log in"}</button><p className="text-xs text-slate-500">Prototype note: this MVP saves accounts only in this browser. Multi-device accounts need Supabase Auth + database next.</p></div></section>
+      <section className="rounded-[2rem] bg-slate-950 p-8 text-white shadow-2xl md:p-12"><p className="mb-4 inline-flex rounded-full bg-emerald-500/15 px-4 py-2 text-sm font-bold text-emerald-200">The Challenge</p><h1 className="text-5xl font-black tracking-tight">Create your real account.</h1><p className="mt-5 text-lg leading-8 text-slate-300">Supabase now powers multi-user accounts. Create an account, finish onboarding, and your data can work across devices.</p><div className="mt-8 grid gap-3 text-sm text-slate-200"><p>1. Email + password</p><p>2. Personal onboarding</p><p>3. Main dashboard + daily missions</p></div></section>
+      <section className={cardClass}><div className="mb-5 flex rounded-2xl bg-slate-100 p-1"><button onClick={() => setAuthMode("create")} className={`flex-1 rounded-xl px-4 py-3 text-sm font-black ${authMode === "create" ? "bg-white shadow" : "text-slate-500"}`}>Create account</button><button onClick={() => setAuthMode("login")} className={`flex-1 rounded-xl px-4 py-3 text-sm font-black ${authMode === "login" ? "bg-white shadow" : "text-slate-500"}`}>Log in</button></div><div className="space-y-4">{authMode === "create" && <><Field label="Full name"><input className={inputClass} value={auth.name} onChange={(e) => setAuth({ ...auth, name: e.target.value })} /></Field><Field label="Username" hint="Shown on leaderboard later."><input className={inputClass} value={auth.username} onChange={(e) => setAuth({ ...auth, username: e.target.value.toLowerCase() })} placeholder="choose_username" /></Field><Field label="Date of birth"><input type="date" className={inputClass} value={auth.dob} onChange={(e) => setAuth({ ...auth, dob: e.target.value })} /></Field></>}<Field label="Email"><input className={inputClass} type="email" value={auth.email} onChange={(e) => setAuth({ ...auth, email: e.target.value })} placeholder="you@example.com" /></Field><Field label="Password"><input className={inputClass} type="password" value={auth.password} onChange={(e) => setAuth({ ...auth, password: e.target.value })} placeholder="Password" /></Field>{authMode === "create" && <Field label="Confirm password"><input className={inputClass} type="password" value={auth.confirmPassword} onChange={(e) => setAuth({ ...auth, confirmPassword: e.target.value })} /></Field>}{authNotice && <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">{authNotice}</p>}{authError && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700">{authError}</p>}<button onClick={handleAuth} className="w-full rounded-full bg-emerald-600 px-5 py-3 font-black text-white">{authMode === "create" ? "Create account" : "Log in"}</button>{!hasSupabaseEnv() && <p className="text-xs font-bold text-red-600">Supabase env vars are missing in Vercel.</p>}</div></section>
     </div></main>;
   }
 
   if (stage === "onboarding") {
-    return <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,#dcfce7,transparent_32%),#fff8ed] px-4 py-8 text-slate-900"><div className="mx-auto max-w-7xl space-y-6"><header className="flex flex-col justify-between gap-4 rounded-[2rem] bg-slate-950 p-6 text-white md:flex-row md:items-center"><div><p className="text-sm font-bold text-emerald-300">Step 2 of 3 • {Math.max(0, 22 - onboardingMissing)}/22 required groups complete</p><h1 className="text-3xl font-black">Tell us who you are, {currentUser}</h1><p className="mt-2 text-slate-300">The Challenge uses this to make the mission realistic. You cannot enter the dashboard until the core fields are complete.</p></div><button onClick={logout} className="rounded-full border border-white/20 px-5 py-3 text-sm font-bold">Log out</button></header>
-      <section className={cardClass}><h2 className="mb-2 text-2xl font-black">Your foundation</h2><p className="mb-5 text-sm text-slate-600">Start with real numbers. Later this becomes a 10-step guided onboarding with question-by-question logic.</p><div className="grid gap-4 md:grid-cols-3">
+    return <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,#dcfce7,transparent_32%),#fff8ed] px-4 py-8 text-slate-900"><div className="mx-auto max-w-7xl space-y-6"><header className="flex flex-col justify-between gap-4 rounded-[2rem] bg-slate-950 p-6 text-white md:flex-row md:items-center"><div><p className="text-sm font-bold text-emerald-300">Onboarding • {Math.max(0, 22 - onboardingMissing)}/22 required groups complete</p><h1 className="text-3xl font-black">Tell us who you are, {currentUser?.username}</h1><p className="mt-2 text-slate-300">The Challenge uses this to make the mission realistic. You cannot enter the dashboard until the core fields are complete.</p></div><button onClick={logout} className="rounded-full border border-white/20 px-5 py-3 text-sm font-bold">Log out</button></header>
+      <section className={cardClass}><h2 className="mb-2 text-2xl font-black">Your foundation</h2><p className="mb-5 text-sm text-slate-600">Start with real numbers. The full 10-step guided flow comes next.</p><div className="grid gap-4 md:grid-cols-3">
         <Field label="Name"><input className={inputClass} value={profile.name} onChange={(e) => updateProfile("name", e.target.value)} /></Field><Field label="Age"><input className={inputClass} value={profile.age} onChange={(e) => updateProfile("age", e.target.value)} /></Field><Field label="Height"><input className={inputClass} value={profile.height} onChange={(e) => updateProfile("height", e.target.value)} placeholder="5'10 or 178 cm" /></Field>
         <Field label="Current weight"><input className={inputClass} value={profile.currentWeight} onChange={(e) => updateProfile("currentWeight", e.target.value)} /></Field><Field label="Goal weight"><input className={inputClass} value={profile.goalWeight} onChange={(e) => updateProfile("goalWeight", e.target.value)} /></Field><Field label="Wake-up time"><input type="time" className={inputClass} value={profile.wakeTime} onChange={(e) => updateProfile("wakeTime", e.target.value)} /></Field>
         <Field label="Start date"><input type="date" className={inputClass} value={profile.startDate} onChange={(e) => updateProfile("startDate", e.target.value)} /></Field><Field label="End date" hint="Minimum 30 days after start."><input type="date" className={inputClass} value={profile.endDate} onChange={(e) => updateProfile("endDate", e.target.value)} /></Field><Field label="Sleep goal"><input className={inputClass} value={profile.sleepGoal} onChange={(e) => updateProfile("sleepGoal", e.target.value)} /></Field>
@@ -180,11 +253,20 @@ export default function Home() {
       </div><div className="mt-6 grid gap-4 md:grid-cols-2">{profile.personalGoals.map((goal, index) => <div key={index} className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4"><h3 className="font-black">Personal Goal {index + 1}</h3><div className="mt-3 grid gap-3">{(["name", "endGoal", "dailyTask", "frequency", "tracking"] as const).map((key) => <input key={key} className={inputClass} value={goal[key]} onChange={(e) => { const goals = [...profile.personalGoals]; goals[index] = { ...goals[index], [key]: e.target.value }; updateProfile("personalGoals", goals); }} placeholder={key === "name" ? "Boxing, hygiene, school..." : key} />)}</div></div>)}</div>{onboardingError && <p className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700">{onboardingError}</p>}<button onClick={finishOnboarding} className={`mt-6 w-full rounded-full px-5 py-3 font-black text-white ${onboardingMissing === 0 ? "bg-emerald-600" : "bg-slate-400"}`}>Build my plan and enter dashboard</button></section></div></main>;
   }
 
-  return <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,#dcfce7,transparent_32%),#fff8ed] px-4 py-8 text-slate-900"><div className="mx-auto max-w-7xl space-y-8"><section className="rounded-[2rem] bg-slate-950 p-8 text-white shadow-2xl"><div className="flex flex-col justify-between gap-5 md:flex-row md:items-center"><div><p className="text-sm font-bold text-emerald-300">Main Dashboard</p><h1 className="text-4xl font-black">Welcome back, {profile.name || currentUser}</h1><p className="mt-2 text-slate-300">Your daily mission is ready. Log honestly and climb to 100 points.</p></div><div className="flex gap-3"><button onClick={() => setStage("onboarding")} className="rounded-full border border-white/20 px-5 py-3 text-sm font-bold">Edit info</button><button onClick={logout} className="rounded-full bg-white px-5 py-3 text-sm font-black text-slate-950">Log out</button></div></div></section>
+  return <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,#dcfce7,transparent_32%),#fff8ed] px-4 py-8 text-slate-900"><div className="mx-auto max-w-7xl space-y-8"><section className="rounded-[2rem] bg-slate-950 p-8 text-white shadow-2xl"><div className="flex flex-col justify-between gap-5 md:flex-row md:items-center"><div><p className="text-sm font-bold text-emerald-300">Main Dashboard</p><h1 className="text-4xl font-black">Welcome back, {profile.name || currentUser?.username}</h1><p className="mt-2 text-slate-300">Your daily mission is ready. Log honestly and climb to 100 points.</p></div><div className="flex gap-3"><button onClick={() => setStage("onboarding")} className="rounded-full border border-white/20 px-5 py-3 text-sm font-bold">Edit info</button><button onClick={logout} className="rounded-full bg-white px-5 py-3 text-sm font-black text-slate-950">Log out</button></div></div></section>
     <section className="grid gap-4 md:grid-cols-4"><StatCard label="Score" value={`${cappedPoints}/100`} hint={`Raw earned: ${totalPoints}`} /><StatCard label="Status" value={status} hint={`Expected: ${expectedPoints}`} /><StatCard label="Challenge" value={`${currentDay}/${totalDays || "—"}`} hint="Current day" /><StatCard label="Streak" value={`${checkIns.length}`} hint="Logged days" /></section>
     <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]"><div className={cardClass}><h2 className="text-2xl font-black">Today’s Mission</h2><div className="mt-5 grid gap-3 md:grid-cols-2">{[`Wake up by ${profile.wakeTime}`, `Stay near ${profile.calorieTarget} calories`, `Drink ${profile.waterTarget} bottles/cups of water`, `Walk ${profile.stepTarget} steps`, `Exercise: ${profile.preferredExercise}`, `Memorize: ${profile.quranDailyTarget}`, `Review: ${profile.quranReviewTarget}`, `${profile.personalGoals[0]?.name}: ${profile.personalGoals[0]?.dailyTask}`, `${profile.personalGoals[1]?.name}: ${profile.personalGoals[1]?.dailyTask}`].map((item) => <div key={item} className="rounded-2xl border border-slate-100 bg-white p-4 text-sm font-semibold">{item}</div>)}</div><div className="mt-5 rounded-2xl bg-slate-950 p-5 text-white"><h3 className="font-black text-emerald-300">3 Random Small Tasks</h3><ul className="mt-3 space-y-2 text-sm text-slate-200">{todayTasks.map((task) => <li key={task}>• {task}</li>)}</ul><p className="mt-4 text-sm"><span className="font-bold text-yellow-300">Weekly big task:</span> {weeklyTask}</p><p className="mt-2 text-sm"><span className="font-bold text-pink-200">Joy task:</span> {joyTask}</p></div></div>
       <div className={cardClass}><h2 className="text-2xl font-black">Daily Check-In</h2><div className="mt-5 grid gap-3 md:grid-cols-2">{[["Weight","weight"],["Calories","calories"],["Steps","steps"],["Water","water"],["Exercise minutes","exerciseMinutes"],["Sleep hours","sleepHours"],["Qur’an memorized","quranMemorized"],["Qur’an reviewed","quranReviewed"],["Money spent","moneySpent"],["Screen time hours","screenTime"],["TV time hours","tvTime"],["Mood 1-10","mood"]].map(([label,key]) => <Field label={label} key={key}><input className={inputClass} value={String(entry[key as keyof typeof entry])} onChange={(e) => setEntry({ ...entry, [key]: e.target.value })} /></Field>)}</div><div className="mt-4 grid gap-2 text-sm font-semibold"><label><input type="checkbox" checked={entry.personalOneDone} onChange={(e) => setEntry({ ...entry, personalOneDone: e.target.checked })} /> Personal goal 1 done</label><label><input type="checkbox" checked={entry.personalTwoDone} onChange={(e) => setEntry({ ...entry, personalTwoDone: e.target.checked })} /> Personal goal 2 done</label><label><input type="checkbox" checked={entry.joyTaskDone} onChange={(e) => setEntry({ ...entry, joyTaskDone: e.target.checked })} /> Joy task done</label><label><input type="checkbox" checked={entry.restaurantVisit} onChange={(e) => setEntry({ ...entry, restaurantVisit: e.target.checked })} /> Restaurant/fast food today</label><Field label="Random tasks completed"><select className={inputClass} value={entry.randomTasksDone} onChange={(e) => setEntry({ ...entry, randomTasksDone: Number(e.target.value) })}><option value={0}>0/3</option><option value={1}>1/3</option><option value={2}>2/3</option><option value={3}>3/3</option></select></Field><textarea className={inputClass} rows={3} placeholder="Notes/reflection" value={entry.notes} onChange={(e) => setEntry({ ...entry, notes: e.target.value })} /></div><button onClick={submitCheckIn} className="mt-5 w-full rounded-full bg-emerald-600 px-5 py-3 font-black text-white">Lock in today</button></div></section>
-    <section className="grid gap-6 lg:grid-cols-2"><div className={cardClass}><h2 className="text-2xl font-black">Monthly + Screen Limits</h2><div className="mt-4 space-y-3">{[`Spending: $${profile.spendingLimit}/month`, `Restaurants: ${profile.restaurantLimit}/month`, `Screen time: ${profile.screenLimit} hours/day`, `TV: ${profile.tvLimit} episodes/week`].map((limit) => <div className="rounded-2xl bg-slate-50 p-4 font-semibold" key={limit}>{limit}</div>)}</div></div><div className={cardClass}><h2 className="text-2xl font-black">Leaderboard</h2><div className="mt-4 space-y-3">{leaders.length === 1 && <p className="rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-600">No one here yet. Show up first. Real leaderboard users will appear after Supabase accounts are connected.</p>}{leaders.map((leader, index) => <div key={leader.name} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-2xl bg-slate-50 p-4"><div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 font-black text-emerald-800">{index + 1}</div><div><p className="font-black">{leader.name}</p><p className="text-xs text-slate-500">{leader.streak} day streak • {leader.status}</p></div><p className="font-black">{leader.points}/100</p></div>)}</div></div></section>
+    <section className="grid gap-6 lg:grid-cols-2"><div className={cardClass}><h2 className="text-2xl font-black">Monthly + Screen Limits</h2><div className="mt-4 space-y-3">{[`Spending: $${profile.spendingLimit}/month`, `Restaurants: ${profile.restaurantLimit}/month`, `Screen time: ${profile.screenLimit} hours/day`, `TV: ${profile.tvLimit} episodes/week`].map((limit) => <div className="rounded-2xl bg-slate-50 p-4 font-semibold" key={limit}>{limit}</div>)}</div></div><div className={cardClass}><h2 className="text-2xl font-black">Leaderboard</h2><div className="mt-4 space-y-3">{leaders.length === 1 && <p className="rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-600">No one here yet. Show up first. Real leaderboard rows will show after daily logs are saved to Supabase.</p>}{leaders.map((leader, index) => <div key={leader.name} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-2xl bg-slate-50 p-4"><div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 font-black text-emerald-800">{index + 1}</div><div><p className="font-black">{leader.name}</p><p className="text-xs text-slate-500">{leader.streak} day streak • {leader.status}</p></div><p className="font-black">{leader.points}/100</p></div>)}</div></div></section>
     <section className="rounded-[2rem] bg-slate-950 p-6 text-white shadow-xl"><h2 className="text-2xl font-black">Recent Check-Ins</h2><div className="mt-4 space-y-3">{checkIns.length === 0 && <p className="text-slate-300">No check-ins yet. Lock in today to start earning points.</p>}{checkIns.slice(0, 5).map((item, index) => <div key={`${item.date}-${index}`} className="rounded-2xl bg-white/10 p-4"><p className="font-bold">{item.date} • {item.points} points</p><p className="text-sm text-slate-300">Steps: {item.steps || "—"} • Calories: {item.calories || "—"} • Qur’an: {item.quranMemorized || "—"}</p></div>)}</div></section>
   </div></main>;
+}
+
+function ageFromDob(dob: string) {
+  const birth = new Date(dob);
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) age -= 1;
+  return String(age);
 }
