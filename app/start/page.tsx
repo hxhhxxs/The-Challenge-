@@ -50,6 +50,7 @@ const defaultProfile: Profile = {
 
 const inputClass = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600";
 const cardClass = "rounded-[2rem] bg-white/90 p-6 shadow-xl shadow-emerald-950/5";
+const noVerifyMessage = "Your account was created, but Supabase email confirmation is still ON. To make accounts work instantly: Supabase → Authentication → Sign In / Providers → Email → turn OFF Confirm email. Then create a new account or confirm/delete this test account.";
 
 function ageFromDob(dob: string) {
   const birth = new Date(dob);
@@ -150,7 +151,7 @@ export default function StartPage() {
         return;
       }
 
-      setMessage("Account created. Now log in with the same email and password.");
+      setMessage(noVerifyMessage);
       setMode("login");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not create account.");
@@ -165,7 +166,10 @@ export default function StartPage() {
     try {
       const supabase = createSupabaseBrowserClient();
       const { data, error } = await supabase.auth.signInWithPassword({ email: form.email.trim().toLowerCase(), password: form.password });
-      if (error) throw error;
+      if (error) {
+        if (error.message.toLowerCase().includes("invalid login")) throw new Error(noVerifyMessage);
+        throw error;
+      }
       if (!data.user) throw new Error("Could not log in.");
       const record = await ensureUserRecord(data.user);
       const draft = (record.onboarding_draft || {}) as Partial<Profile>;
