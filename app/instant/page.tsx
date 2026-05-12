@@ -58,12 +58,12 @@ const cardClass = "rounded-[2rem] bg-white/90 p-6 shadow-xl shadow-emerald-950/5
 const ages = Array.from({ length: 88 }, (_, index) => String(index + 13));
 const feet = ["4", "5", "6", "7"];
 const inches = Array.from({ length: 12 }, (_, index) => String(index));
-const weights = Array.from({ length: 401 }, (_, index) => String(index + 80));
-const calories = Array.from({ length: 21 }, (_, index) => String(1200 + index * 100));
-const steps = ["3000", "5000", "7500", "10000", "12000", "15000", "20000", "25000", "30000"];
+const weights = Array.from({ length: 421 }, (_, index) => String(index + 80));
+const calories = Array.from({ length: 25 }, (_, index) => String(1200 + index * 100));
+const steps = ["3000", "5000", "7500", "10000", "12000", "15000", "20000", "25000", "30000", "40000"];
 const water = ["3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
 const hifdhOptions = ["None", "Few surahs", "1 juz", "2 juz", "3 juz", "5 juz", "10 juz", "15 juz", "20 juz", "25 juz", "30 juz"];
-const quranTargets = ["1 line", "3 lines", "5 lines", "10 lines", "1 page", "2 pages", "1 surah", "Custom"];
+const quranTargets = ["1 line", "3 lines", "5 lines", "10 lines", "1 page", "2 pages", "1 surah", "Custom later"];
 const commonGoals = ["Boxing", "Hygiene", "School", "Business", "Reading", "Confidence", "Sleep schedule", "Money", "Cleaning", "Family", "Character"];
 const commonTasks = ["10 minutes daily", "20 minutes daily", "30 minutes daily", "1 hour daily", "Complete checklist", "Practice skill", "Read and reflect", "Clean one area", "No excuses task"];
 
@@ -80,6 +80,18 @@ function isComplete(profile: Profile) {
   return Object.values(profile).every((value) => String(value).trim().length > 0);
 }
 
+function optionLabel(kind: string, value: string) {
+  if (!value) return value;
+  if (kind === "age") return `${value} years old`;
+  if (kind === "feet") return `${value} ft`;
+  if (kind === "inches") return `${value} in`;
+  if (kind === "weight") return `${value} lbs`;
+  if (kind === "calories") return `${value} calories/day`;
+  if (kind === "steps") return `${Number(value).toLocaleString()} steps/day`;
+  if (kind === "water") return `${value} cups/bottles per day`;
+  return value;
+}
+
 function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (
     <label className="block">
@@ -90,12 +102,12 @@ function Field({ label, children, hint }: { label: string; children: React.React
   );
 }
 
-function SelectField({ label, value, onChange, options, hint }: { label: string; value: string; onChange: (value: string) => void; options: string[]; hint?: string }) {
+function SelectField({ label, value, onChange, options, kind = "default", hint }: { label: string; value: string; onChange: (value: string) => void; options: string[]; kind?: string; hint?: string }) {
   return (
     <Field label={label} hint={hint}>
       <select className={inputClass} value={value} onChange={(e) => onChange(e.target.value)}>
         <option value="">Select</option>
-        {options.map((option) => <option key={option} value={option}>{option}</option>)}
+        {options.map((option) => <option key={option} value={option}>{optionLabel(kind, option)}</option>)}
       </select>
     </Field>
   );
@@ -247,17 +259,17 @@ export default function InstantPage() {
           <section className={cardClass}>
             <div className="grid gap-4 md:grid-cols-3">
               <Field label="Name"><input className={inputClass} value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value })} /></Field>
-              <SelectField label="Age" value={profile.age} onChange={(value) => setProfile({ ...profile, age: value })} options={ages} />
-              <SelectField label="Height — feet" value={profile.heightFeet} onChange={(value) => setProfile({ ...profile, heightFeet: value })} options={feet} />
-              <SelectField label="Height — inches" value={profile.heightInches} onChange={(value) => setProfile({ ...profile, heightInches: value })} options={inches} />
-              <SelectField label="Current weight (lbs)" value={profile.currentWeightLbs} onChange={(value) => setProfile({ ...profile, currentWeightLbs: value })} options={weights} />
-              <SelectField label="Goal weight (lbs)" value={profile.goalWeightLbs} onChange={(value) => setProfile({ ...profile, goalWeightLbs: value })} options={weights} />
+              <SelectField label="Age" value={profile.age} onChange={(value) => setProfile({ ...profile, age: value })} options={ages} kind="age" />
+              <SelectField label="Height — feet" value={profile.heightFeet} onChange={(value) => setProfile({ ...profile, heightFeet: value })} options={feet} kind="feet" />
+              <SelectField label="Height — inches" value={profile.heightInches} onChange={(value) => setProfile({ ...profile, heightInches: value })} options={inches} kind="inches" />
+              <SelectField label="Current weight" value={profile.currentWeightLbs} onChange={(value) => setProfile({ ...profile, currentWeightLbs: value })} options={weights} kind="weight" />
+              <SelectField label="Goal weight" value={profile.goalWeightLbs} onChange={(value) => setProfile({ ...profile, goalWeightLbs: value })} options={weights} kind="weight" />
               <Field label="Start date"><input className={inputClass} type="date" value={profile.startDate} onChange={(e) => setProfile({ ...profile, startDate: e.target.value })} /></Field>
               <Field label="End date"><input className={inputClass} type="date" value={profile.endDate} onChange={(e) => setProfile({ ...profile, endDate: e.target.value })} /></Field>
               <Field label="Wake-up time"><input className={inputClass} type="time" value={profile.wakeTime} onChange={(e) => setProfile({ ...profile, wakeTime: e.target.value })} /></Field>
-              <SelectField label="Daily calories" value={profile.calorieTarget} onChange={(value) => setProfile({ ...profile, calorieTarget: value })} options={calories} />
-              <SelectField label="Daily step goal" value={profile.stepTarget} onChange={(value) => setProfile({ ...profile, stepTarget: value })} options={steps} />
-              <SelectField label="Daily water goal" value={profile.waterTarget} onChange={(value) => setProfile({ ...profile, waterTarget: value })} options={water} hint="Bottles/cups per day" />
+              <SelectField label="Daily calories" value={profile.calorieTarget} onChange={(value) => setProfile({ ...profile, calorieTarget: value })} options={calories} kind="calories" />
+              <SelectField label="Daily step goal" value={profile.stepTarget} onChange={(value) => setProfile({ ...profile, stepTarget: value })} options={steps} kind="steps" />
+              <SelectField label="Daily water goal" value={profile.waterTarget} onChange={(value) => setProfile({ ...profile, waterTarget: value })} options={water} kind="water" />
               <SelectField label="Current Qur’an hifdh" value={profile.currentHifdh} onChange={(value) => setProfile({ ...profile, currentHifdh: value })} options={hifdhOptions} />
               <SelectField label="Goal Qur’an hifdh" value={profile.goalHifdh} onChange={(value) => setProfile({ ...profile, goalHifdh: value })} options={hifdhOptions} />
               <SelectField label="Daily memorization" value={profile.quranDailyTarget} onChange={(value) => setProfile({ ...profile, quranDailyTarget: value })} options={quranTargets} />
@@ -292,7 +304,7 @@ export default function InstantPage() {
         </section>
         <section className={cardClass}>
           <h2 className="text-2xl font-black">Today’s Mission</h2>
-          <p className="mt-3">Walk {profile.stepTarget} steps, stay near {profile.calorieTarget} calories, memorize {profile.quranDailyTarget}, and complete {profile.goal1} + {profile.goal2}.</p>
+          <p className="mt-3">Walk {Number(profile.stepTarget).toLocaleString()} steps, stay near {profile.calorieTarget} calories, memorize {profile.quranDailyTarget}, and complete {profile.goal1} + {profile.goal2}.</p>
         </section>
       </div>
     </main>
