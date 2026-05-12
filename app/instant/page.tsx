@@ -10,9 +10,10 @@ type Mode = "signup" | "login";
 type Profile = {
   name: string;
   age: string;
-  height: string;
-  currentWeight: string;
-  goalWeight: string;
+  heightFeet: string;
+  heightInches: string;
+  currentWeightLbs: string;
+  goalWeightLbs: string;
   startDate: string;
   endDate: string;
   wakeTime: string;
@@ -32,9 +33,10 @@ type Profile = {
 const emptyProfile: Profile = {
   name: "",
   age: "",
-  height: "",
-  currentWeight: "",
-  goalWeight: "",
+  heightFeet: "",
+  heightInches: "",
+  currentWeightLbs: "",
+  goalWeightLbs: "",
   startDate: "",
   endDate: "",
   wakeTime: "",
@@ -53,6 +55,17 @@ const emptyProfile: Profile = {
 
 const inputClass = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600";
 const cardClass = "rounded-[2rem] bg-white/90 p-6 shadow-xl shadow-emerald-950/5";
+const ages = Array.from({ length: 88 }, (_, index) => String(index + 13));
+const feet = ["4", "5", "6", "7"];
+const inches = Array.from({ length: 12 }, (_, index) => String(index));
+const weights = Array.from({ length: 401 }, (_, index) => String(index + 80));
+const calories = Array.from({ length: 21 }, (_, index) => String(1200 + index * 100));
+const steps = ["3000", "5000", "7500", "10000", "12000", "15000", "20000", "25000", "30000"];
+const water = ["3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
+const hifdhOptions = ["None", "Few surahs", "1 juz", "2 juz", "3 juz", "5 juz", "10 juz", "15 juz", "20 juz", "25 juz", "30 juz"];
+const quranTargets = ["1 line", "3 lines", "5 lines", "10 lines", "1 page", "2 pages", "1 surah", "Custom"];
+const commonGoals = ["Boxing", "Hygiene", "School", "Business", "Reading", "Confidence", "Sleep schedule", "Money", "Cleaning", "Family", "Character"];
+const commonTasks = ["10 minutes daily", "20 minutes daily", "30 minutes daily", "1 hour daily", "Complete checklist", "Practice skill", "Read and reflect", "Clean one area", "No excuses task"];
 
 function ageFromDob(dob: string) {
   const birth = new Date(dob);
@@ -67,12 +80,24 @@ function isComplete(profile: Profile) {
   return Object.values(profile).every((value) => String(value).trim().length > 0);
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (
     <label className="block">
       <span className="text-sm font-bold text-slate-700">{label}</span>
       <div className="mt-1">{children}</div>
+      {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
     </label>
+  );
+}
+
+function SelectField({ label, value, onChange, options, hint }: { label: string; value: string; onChange: (value: string) => void; options: string[]; hint?: string }) {
+  return (
+    <Field label={label} hint={hint}>
+      <select className={inputClass} value={value} onChange={(e) => onChange(e.target.value)}>
+        <option value="">Select</option>
+        {options.map((option) => <option key={option} value={option}>{option}</option>)}
+      </select>
+    </Field>
   );
 }
 
@@ -157,8 +182,12 @@ export default function InstantPage() {
       return;
     }
     const supabase = createSupabaseBrowserClient();
+    const height = `${profile.heightFeet} ft ${profile.heightInches} in`;
     const onboardingDraft = {
       ...profile,
+      height,
+      currentWeight: `${profile.currentWeightLbs} lbs`,
+      goalWeight: `${profile.goalWeightLbs} lbs`,
       personalGoals: [
         { name: profile.goal1, endGoal: profile.goal1, dailyTask: profile.goal1Task, frequency: "daily", tracking: "Checklist" },
         { name: profile.goal2, endGoal: profile.goal2, dailyTask: profile.goal2Task, frequency: "daily", tracking: "Checklist" },
@@ -179,7 +208,7 @@ export default function InstantPage() {
           <section className="rounded-[2rem] bg-slate-950 p-8 text-white shadow-2xl md:p-12">
             <p className="mb-4 inline-flex rounded-full bg-emerald-500/15 px-4 py-2 text-sm font-bold text-emerald-200">The Challenge</p>
             <h1 className="text-5xl font-black tracking-tight">Create account. Start immediately.</h1>
-            <p className="mt-5 text-lg leading-8 text-slate-300">No email verification flow. If Supabase allows instant login, you go straight to onboarding.</p>
+            <p className="mt-5 text-lg leading-8 text-slate-300">No email verification flow. After signup, you go straight to onboarding.</p>
           </section>
           <section className={cardClass}>
             <div className="mb-5 flex rounded-2xl bg-slate-100 p-1">
@@ -213,26 +242,37 @@ export default function InstantPage() {
           <header className="rounded-[2rem] bg-slate-950 p-6 text-white">
             <p className="text-sm font-bold text-emerald-300">Onboarding</p>
             <h1 className="text-3xl font-black">Build your challenge</h1>
-            <p className="mt-2 text-slate-300">Every field is required before you can enter the dashboard.</p>
+            <p className="mt-2 text-slate-300">Select your information. Height is feet/inches and weight is pounds only.</p>
           </header>
           <section className={cardClass}>
             <div className="grid gap-4 md:grid-cols-3">
-              {(Object.keys(emptyProfile) as Array<keyof Profile>).filter((key) => key !== "goal1" && key !== "goal1Task" && key !== "goal2" && key !== "goal2Task").map((key) => (
-                <Field key={key} label={key}>
-                  <input className={inputClass} type={key.includes("Date") ? "date" : key === "wakeTime" ? "time" : "text"} value={String(profile[key])} onChange={(e) => setProfile({ ...profile, [key]: e.target.value })} />
-                </Field>
-              ))}
+              <Field label="Name"><input className={inputClass} value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value })} /></Field>
+              <SelectField label="Age" value={profile.age} onChange={(value) => setProfile({ ...profile, age: value })} options={ages} />
+              <SelectField label="Height — feet" value={profile.heightFeet} onChange={(value) => setProfile({ ...profile, heightFeet: value })} options={feet} />
+              <SelectField label="Height — inches" value={profile.heightInches} onChange={(value) => setProfile({ ...profile, heightInches: value })} options={inches} />
+              <SelectField label="Current weight (lbs)" value={profile.currentWeightLbs} onChange={(value) => setProfile({ ...profile, currentWeightLbs: value })} options={weights} />
+              <SelectField label="Goal weight (lbs)" value={profile.goalWeightLbs} onChange={(value) => setProfile({ ...profile, goalWeightLbs: value })} options={weights} />
+              <Field label="Start date"><input className={inputClass} type="date" value={profile.startDate} onChange={(e) => setProfile({ ...profile, startDate: e.target.value })} /></Field>
+              <Field label="End date"><input className={inputClass} type="date" value={profile.endDate} onChange={(e) => setProfile({ ...profile, endDate: e.target.value })} /></Field>
+              <Field label="Wake-up time"><input className={inputClass} type="time" value={profile.wakeTime} onChange={(e) => setProfile({ ...profile, wakeTime: e.target.value })} /></Field>
+              <SelectField label="Daily calories" value={profile.calorieTarget} onChange={(value) => setProfile({ ...profile, calorieTarget: value })} options={calories} />
+              <SelectField label="Daily step goal" value={profile.stepTarget} onChange={(value) => setProfile({ ...profile, stepTarget: value })} options={steps} />
+              <SelectField label="Daily water goal" value={profile.waterTarget} onChange={(value) => setProfile({ ...profile, waterTarget: value })} options={water} hint="Bottles/cups per day" />
+              <SelectField label="Current Qur’an hifdh" value={profile.currentHifdh} onChange={(value) => setProfile({ ...profile, currentHifdh: value })} options={hifdhOptions} />
+              <SelectField label="Goal Qur’an hifdh" value={profile.goalHifdh} onChange={(value) => setProfile({ ...profile, goalHifdh: value })} options={hifdhOptions} />
+              <SelectField label="Daily memorization" value={profile.quranDailyTarget} onChange={(value) => setProfile({ ...profile, quranDailyTarget: value })} options={quranTargets} />
+              <SelectField label="Daily review" value={profile.quranReviewTarget} onChange={(value) => setProfile({ ...profile, quranReviewTarget: value })} options={quranTargets} />
             </div>
             <div className="mt-6 grid gap-4 md:grid-cols-2">
               <div className="rounded-2xl bg-emerald-50 p-4">
                 <h3 className="font-black">Personal Goal 1</h3>
-                <input className={`${inputClass} mt-3`} placeholder="Goal name" value={profile.goal1} onChange={(e) => setProfile({ ...profile, goal1: e.target.value })} />
-                <input className={`${inputClass} mt-3`} placeholder="Daily task" value={profile.goal1Task} onChange={(e) => setProfile({ ...profile, goal1Task: e.target.value })} />
+                <SelectField label="Goal" value={profile.goal1} onChange={(value) => setProfile({ ...profile, goal1: value })} options={commonGoals} />
+                <div className="mt-3"><SelectField label="Daily task" value={profile.goal1Task} onChange={(value) => setProfile({ ...profile, goal1Task: value })} options={commonTasks} /></div>
               </div>
               <div className="rounded-2xl bg-emerald-50 p-4">
                 <h3 className="font-black">Personal Goal 2</h3>
-                <input className={`${inputClass} mt-3`} placeholder="Goal name" value={profile.goal2} onChange={(e) => setProfile({ ...profile, goal2: e.target.value })} />
-                <input className={`${inputClass} mt-3`} placeholder="Daily task" value={profile.goal2Task} onChange={(e) => setProfile({ ...profile, goal2Task: e.target.value })} />
+                <SelectField label="Goal" value={profile.goal2} onChange={(value) => setProfile({ ...profile, goal2: value })} options={commonGoals} />
+                <div className="mt-3"><SelectField label="Daily task" value={profile.goal2Task} onChange={(value) => setProfile({ ...profile, goal2Task: value })} options={commonTasks} /></div>
               </div>
             </div>
             {message && <p className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700">{message}</p>}
