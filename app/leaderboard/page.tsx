@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { cardClass, pageBg } from "@/lib/challenge-ui";
 import { getRankFromScore } from "@/lib/ranks";
@@ -9,10 +9,36 @@ import { computePillarStats } from "@/lib/pillars";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ensureUserRecord } from "@/lib/supabase/ensure-user-record";
 
+type LeaderboardUser = {
+  id: string;
+  name?: string;
+  username?: string;
+  display_name?: string;
+  current_score?: number;
+  pillar_scores?: Record<string, number>;
+  onboarding_draft?: Record<string, any>;
+};
+
+function safeName(user: LeaderboardUser, currentUserId: string) {
+  if (user.id === currentUserId) return "You";
+  return user.display_name || user.username || user.onboarding_draft?.displayName || user.onboarding_draft?.name || user.name || "Challenger";
+}
+
+function scoreFor(user: LeaderboardUser) {
+  return Number(user.current_score ?? user.onboarding_draft?.current_score ?? 0);
+}
+
+function pillarsFor(user: LeaderboardUser) {
+  return (user.pillar_scores || user.onboarding_draft?.pillar_scores || {}) as Record<string, number>;
+}
+
 export default function LeaderboardPage() {
   const router = useRouter();
   const tabs = ["Overall", "Quwwah", "Imaan", "Sabr", "Niyyah", "Adab", "Streak", "Friends"];
   const [draft, setDraft] = useState<Record<string, any> | null>(null);
+  const [currentUserId, setCurrentUserId] = useState("");
+  const [users, setUsers] = useState<LeaderboardUser[]>([]);
+  const [loadMessage, setLoadMessage] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -22,27 +48,55 @@ export default function LeaderboardPage() {
         router.push("/login");
         return;
       }
+
+      setCurrentUserId(data.user.id);
       const record = await ensureUserRecord(data.user);
-      setDraft((record.onboarding_draft || {}) as Record<string, any>);
+      const loadedDraft = (record.onboarding_draft || {}) as Record<string, any>;
+      setDraft(loadedDraft);
+
+      const { data: rows, error } = await supabase
+        .from("users")
+        .select("id,name,username,display_name,current_score,pillar_scores,onboarding_draft")
+        .order("current_score", { ascending: false });
+
+      if (error || !rows) {
+        setLoadMessage("Only your row is visible right now. Run the leaderboard RLS migration to show all users.");
+        setUsers([{ id: data.user.id, name: loadedDraft.name, current_score: (record as any).current_score ?? loadedDraft.current_score ?? 0, pillar_scores: (record as any).pillar_scores ?? loadedDraft.pillar_scores ?? {}, onboarding_draft: loadedDraft }]);
+        return;
+      }
+
+      const mapped = rows as LeaderboardUser[];
+      const hasCurrentUser = mapped.some((user) => user.id === data.user.id);
+      if (!hasCurrentUser) {
+        mapped.push({ id: data.user.id, name: loadedDraft.name, current_score: (record as any).current_score ?? loadedDraft.current_score ?? 0, pillar_scores: (record as any).pillar_scores ?? loadedDraft.pillar_scores ?? {}, onboarding_draft: loadedDraft });
+      }
+      setUsers(mapped);
+      setLoadMessage(mapped.length <= 1 ? "Only one real user exists or is readable right now." : `${mapped.length} real users loaded.`);
     }
     load();
   }, [router]);
+
+  const sortedUsers = useMemo(() => {
+    return [...users].sort((a, b) => scoreFor(b) - scoreFor(a));
+  }, [users]);
 
   if (!draft) {
     return <main className={pageBg}><section className={`${cardClass} mx-auto max-w-xl`}>Loading leaderboard…</section></main>;
   }
 
-  const stats = computePillarStats(draft.pillar_scores || {});
-  const currentScore = Number(draft.current_score || stats.totalScore || 0);
-  const yourRank = getRankFromScore(stats.overallScore);
+  const yourUser = sortedUsers.find((user) => user.id === currentUserId) || sortedUsers[0];
+  const yourStats = computePillarStats(pillarsFor(yourUser || { id: currentUserId }));
+  const yourScore = scoreFor(yourUser || { id: currentUserId });
+  const yourRankInfo = getRankFromScore(yourStats.overallScore);
+  const yourPosition = Math.max(1, sortedUsers.findIndex((user) => user.id === currentUserId) + 1);
 
   return (
     <main className={pageBg}>
-      <div className="mx-auto max-w-5xl space-y-6">
+      <div className="mx-auto max-w-6xl space-y-6">
         <section className="rounded-[2rem] bg-slate-950 p-6 text-white">
           <p className="text-sm font-bold text-emerald-300">Leaderboard</p>
-          <h1 className="mt-1 text-4xl font-black">Climb with your character.</h1>
-          <p className="mt-2 text-slate-300">No fake users are shown. Your leaderboard identity uses your real saved score, title, rank, and 5 Pillars.</p>
+          <h1 className="mt-1 text-4xl font-black">All real users.</h1>
+          <p className="mt-2 text-slate-300">The board loads real Supabase users and sorts them by saved score. No fake competitors.</p>
         </section>
 
         <section className={cardClass}>
@@ -55,49 +109,70 @@ export default function LeaderboardPage() {
           <div className="mt-6 rounded-2xl bg-emerald-50 p-5">
             <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
               <div>
-                <p className="text-sm font-bold text-slate-500">Your row</p>
-                <p className="text-xl font-black text-slate-950">1. You</p>
-                <p className="mt-1 text-sm font-black text-emerald-800">{stats.title}</p>
-                <p className="mt-1 text-sm text-slate-600">Your leaderboard row is pinned here. It updates when your check-in saves points.</p>
+                <p className="text-sm font-bold text-slate-500">Your pinned row</p>
+                <p className="text-xl font-black text-slate-950">#{yourPosition} You</p>
+                <p className="mt-1 text-sm font-black text-emerald-800">{yourStats.title}</p>
+                <p className="mt-1 text-sm text-slate-600">{loadMessage}</p>
               </div>
               <div className="flex flex-wrap items-center gap-3">
-                <span className={`rounded-full px-5 py-3 font-black ${yourRank.color}`}>{stats.overallRank}</span>
-                <span className="rounded-full bg-white px-5 py-3 font-black text-emerald-700">{currentScore.toFixed(1)}/100</span>
+                <span className={`rounded-full px-5 py-3 font-black ${yourRankInfo.color}`}>{yourStats.overallRank}</span>
+                <span className="rounded-full bg-white px-5 py-3 font-black text-emerald-700">{yourScore.toFixed(1)}/100</span>
               </div>
             </div>
             <div className="mt-5">
               <div className="flex items-center justify-between text-xs font-black text-slate-500">
-                <span>Progress to {yourRank.nextRank}</span>
-                <span>{yourRank.progressToNext}%</span>
+                <span>Progress to {yourRankInfo.nextRank}</span>
+                <span>{yourRankInfo.progressToNext}%</span>
               </div>
               <div className="mt-2 h-3 rounded-full bg-white">
-                <div className="h-3 rounded-full bg-emerald-500" style={{ width: `${yourRank.progressToNext}%` }} />
+                <div className="h-3 rounded-full bg-emerald-500" style={{ width: `${yourRankInfo.progressToNext}%` }} />
               </div>
             </div>
           </div>
         </section>
 
         <section className={cardClass}>
-          <h2 className="text-2xl font-black">Your 5 Pillars on the board</h2>
-          <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-5">
-            {stats.pillars.map((pillar) => (
-              <Link key={pillar.key} href="/profile" className="rounded-2xl bg-slate-50 p-4 hover:bg-emerald-50">
-                <p className="text-sm font-black text-emerald-700">{pillar.arabic}</p>
-                <h3 className="mt-1 font-black text-slate-950">{pillar.name}</h3>
-                <p className="mt-1 text-xs font-bold text-slate-500">{pillar.meaning}</p>
-                <p className="mt-3 text-sm font-black text-slate-900">{pillar.rank}</p>
-                <p className="mt-1 text-xs font-bold text-slate-500">{pillar.score.toFixed(1)}/100</p>
-                <div className="mt-2 h-2 rounded-full bg-white">
-                  <div className="h-2 rounded-full bg-emerald-500" style={{ width: `${Math.min(100, pillar.score)}%` }} />
-                </div>
-              </Link>
-            ))}
+          <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
+            <div>
+              <p className="text-sm font-black text-emerald-700">Overall leaderboard</p>
+              <h2 className="text-3xl font-black">Ranked by score</h2>
+            </div>
+            <p className="text-sm font-bold text-slate-500">{sortedUsers.length} users shown</p>
           </div>
-        </section>
 
-        <section className={cardClass}>
-          <h2 className="text-2xl font-black">Where are the other users?</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-600">The public board opens once 5+ real users opt into active challenges. Until then, the app only shows your pinned row and does not invent fake competitors.</p>
+          <div className="mt-5 space-y-3">
+            {sortedUsers.map((user, index) => {
+              const stats = computePillarStats(pillarsFor(user));
+              const rank = getRankFromScore(stats.overallScore);
+              const score = scoreFor(user);
+              const isYou = user.id === currentUserId;
+              return (
+                <div key={user.id} className={`rounded-2xl p-4 ${isYou ? "bg-emerald-50 ring-2 ring-emerald-300" : "bg-slate-50"}`}>
+                  <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-sm font-black text-white">#{index + 1}</div>
+                      <div>
+                        <p className="text-lg font-black text-slate-950">{safeName(user, currentUserId)}</p>
+                        <p className="text-sm font-bold text-emerald-700">{stats.title}</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`rounded-full px-4 py-2 text-xs font-black ${rank.color}`}>{stats.overallRank}</span>
+                      <span className="rounded-full bg-white px-4 py-2 text-xs font-black text-slate-700">{score.toFixed(1)}/100</span>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid gap-2 md:grid-cols-5">
+                    {stats.pillars.map((pillar) => (
+                      <div key={pillar.key} className="rounded-xl bg-white p-2">
+                        <p className="text-xs font-black text-emerald-700">{pillar.name}</p>
+                        <p className="text-xs font-bold text-slate-500">{pillar.score.toFixed(1)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </section>
 
         <section className={cardClass}>
