@@ -43,6 +43,14 @@ function localDateOnly(value?: string | Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
+export function localTodayKey(today: Date = new Date()) {
+  const day = localDateOnly(today);
+  const year = day.getFullYear();
+  const month = String(day.getMonth() + 1).padStart(2, "0");
+  const date = String(day.getDate()).padStart(2, "0");
+  return `${year}-${month}-${date}`;
+}
+
 export function getStableChallengeStart(profile?: Record<string, any>) {
   return profile?.challenge_started_local_date || profile?.challenge_started_at || profile?.startDate || "";
 }
@@ -54,11 +62,38 @@ export function daysBetween(start?: string, end?: string) {
   return Math.max(1, Math.floor((endDay - startDay) / 86400000) + 1);
 }
 
-export function dayOfChallenge(start?: string, today: Date = new Date()) {
-  if (!start) return 1;
+export function rawDayDiffFromStart(start?: string, today: Date = new Date()) {
+  if (!start) return 0;
   const startDay = localDateOnly(start).getTime();
   const todayDay = localDateOnly(today).getTime();
-  return Math.max(1, Math.floor((todayDay - startDay) / 86400000) + 1);
+  return Math.floor((todayDay - startDay) / 86400000);
+}
+
+export function isChallengeStarted(start?: string, today: Date = new Date()) {
+  return rawDayDiffFromStart(start, today) >= 0;
+}
+
+export function daysUntilChallengeStart(start?: string, today: Date = new Date()) {
+  return Math.max(0, -rawDayDiffFromStart(start, today));
+}
+
+export function dayOfChallenge(start?: string, today: Date = new Date()) {
+  if (!start) return 1;
+  const diff = rawDayDiffFromStart(start, today);
+  return diff < 0 ? 0 : diff + 1;
+}
+
+export function challengeDisplayLabel(profile?: Record<string, any>, today: Date = new Date()) {
+  const start = getStableChallengeStart(profile);
+  const total = totalChallengeDaysFromProfile(profile);
+  const day = dayOfChallenge(start, today);
+  if (!start) return `Day 1 of ${total || 1}`;
+  if (day === 0) {
+    const days = daysUntilChallengeStart(start, today);
+    const startLabel = localDateOnly(start).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    return `Starts ${startLabel}${days > 0 ? ` • ${days} day${days === 1 ? "" : "s"} left` : ""}`;
+  }
+  return `Day ${Math.min(day, total || day)} of ${total || day}`;
 }
 
 export function dayOfChallengeFromProfile(profile?: Record<string, any>, today: Date = new Date()) {
@@ -70,7 +105,7 @@ export function totalChallengeDaysFromProfile(profile?: Record<string, any>) {
 }
 
 export function daysSinceStart(start?: string, today: Date = new Date()) {
-  return dayOfChallenge(start, today) - 1;
+  return Math.max(0, dayOfChallenge(start, today) - 1);
 }
 
 export function formatNum(value?: string | number) {
