@@ -8,12 +8,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ensureUserRecord } from "@/lib/supabase/ensure-user-record";
 import { aggregateCheckInScores, computePointsFromSavedCheckIn } from "@/lib/scoring";
 
-type Entry = {
-  id: number;
-  label: string;
-  amount: number;
-  note?: string;
-};
+type Entry = { id: number; label: string; amount: number; note?: string };
 
 type EntryState = {
   calories: Entry[];
@@ -51,6 +46,20 @@ function localDateKey() {
   return `${year}-${month}-${day}`;
 }
 
+function normalizeDailyLog(row: any) {
+  if (!row) return null;
+  return {
+    entries: row.entries || emptyEntries,
+    weight: row.weight ? String(row.weight) : "",
+    sleep: row.sleep || { hours: "", bedtime: "", wake: "" },
+    goals: row.goals || { goal1: "", goal2: "" },
+    salah: row.salah || { Fajr: false, Dhuhr: false, Asr: false, Maghrib: false, Isha: false },
+    reflection: row.reflection || { mood: "", notes: "", slipped: "", wentWell: "" },
+    computedPoints: row.computed_points || row.computedPoints || { total: 0 },
+    localDate: row.date,
+  };
+}
+
 export default function CheckInPage() {
   const router = useRouter();
   const [message, setMessage] = useState("");
@@ -78,9 +87,23 @@ export default function CheckInPage() {
         router.push("/login");
         return;
       }
+
       const record = await ensureUserRecord(data.user);
       const loadedDraft = (record.onboarding_draft || {}) as Record<string, any>;
-      const saved = loadedDraft?.checkins?.[todayKey];
+      let saved = null;
+
+      const { data: dailyLog, error: dailyLogError } = await supabase
+        .from("daily_logs")
+        .select("*")
+        .eq("user_id", data.user.id)
+        .eq("date", todayKey)
+        .maybeSingle();
+
+      if (dailyLog && !dailyLogError) {
+        saved = normalizeDailyLog(dailyLog);
+      } else {
+        saved = loadedDraft?.checkins?.[todayKey];
+      }
 
       setUserId(data.user.id);
       setDraft(loadedDraft);
@@ -126,6 +149,22 @@ export default function CheckInPage() {
     };
     const computedPoints = computePointsFromSavedCheckIn(draft, payloadWithoutPoints);
     const payload = { ...payloadWithoutPoints, computedPoints };
+
+    const { error: logError } = await supabase.from("daily_logs").upsert(
+      {
+        user_id: userId,
+        date: todayKey,
+        entries: payload.entries,
+        weight: payload.weight ? Number(payload.weight) : null,
+        sleep: payload.sleep,
+        goals: payload.goals,
+        salah: payload.salah,
+        reflection: payload.reflection,
+        computed_points: computedPoints,
+      },
+      { onConflict: "user_id,date" }
+    );
+
     const nextDraftWithoutAggregate = {
       ...draft,
       checkins: {
@@ -139,33 +178,40 @@ export default function CheckInPage() {
       current_score: aggregate.total,
       pillar_scores: aggregate.pillars,
     };
-    const { error: saveError } = await supabase.from("users").update({ onboarding_draft: nextDraft }).eq("id", userId);
+
+    const { error: userError } = await supabase
+      .from("users")
+      .update({
+        onboarding_draft: nextDraft,
+        current_score: aggregate.total,
+        pillar_scores: aggregate.pillars,
+      })
+      .eq("id", userId);
+
     setSaving(false);
-    if (saveError) {
-      setError(`Could not save: ${saveError.message}`);
+    if (logError && userError) {
+      setError(`Could not save: ${logError.message || userError.message}`);
       return;
+    }
+    if (logError) {
+      setMessage("Saved to profile backup. Run the daily_logs migration to enable full backend logs.");
+    } else {
+      setMessage(`${successMessage} • Today: ${Number(computedPoints.total || 0).toFixed(3)} pts`);
     }
     setDraft(nextDraft);
     setComputedTotal(computedPoints.total || 0);
-    setMessage(`${successMessage} • Today: ${Number(computedPoints.total || 0).toFixed(3)} pts`);
-    setTimeout(() => setMessage(""), 2200);
+    setTimeout(() => setMessage(""), 2600);
   }
 
   function addEntry(category: keyof EntryState, entry: Omit<Entry, "id">) {
     if (!entry.amount || Number(entry.amount) <= 0) return;
-    const nextEntries = {
-      ...entries,
-      [category]: [...entries[category], { ...entry, id: Date.now() }],
-    };
+    const nextEntries = { ...entries, [category]: [...entries[category], { ...entry, id: Date.now() }] };
     setEntries(nextEntries);
     saveCheckIn({ entries: nextEntries }, `${entry.label || "Entry"} saved ✓`);
   }
 
   function removeEntry(category: keyof EntryState, id: number) {
-    const nextEntries = {
-      ...entries,
-      [category]: entries[category].filter((entry) => entry.id !== id),
-    };
+    const nextEntries = { ...entries, [category]: entries[category].filter((entry) => entry.id !== id) };
     setEntries(nextEntries);
     saveCheckIn({ entries: nextEntries }, "Entry removed ✓");
   }
@@ -190,7 +236,7 @@ export default function CheckInPage() {
         <section className="rounded-[2rem] bg-slate-950 p-6 text-white">
           <p className="text-sm font-bold text-emerald-300">Tracking Today</p>
           <h1 className="mt-1 text-4xl font-black">Log things as they happen.</h1>
-          <p className="mt-2 max-w-2xl text-slate-300">Add multiple entries in each category. Every save updates today’s points and persists to your account.</p>
+          <p className="mt-2 max-w-2xl text-slate-300">Add multiple entries in each category. Every save updates today’s points and writes to daily logs when enabled.</p>
           <p className="mt-4 inline-block rounded-full bg-emerald-400 px-4 py-2 text-sm font-black text-slate-950">Today’s points: {computedTotal.toFixed(3)}</p>
         </section>
 
