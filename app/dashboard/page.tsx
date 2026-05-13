@@ -10,6 +10,10 @@ import { getRankFromScore } from "@/lib/ranks";
 import { computePillarStats } from "@/lib/pillars";
 import { getDailyLearningItem } from "@/lib/content-library";
 
+const FALLBACK_ARABIC = "فَإِنَّ مَعَ الْعُسْرِ يُسْرًا";
+const FALLBACK_ENGLISH = "Indeed, with hardship comes ease.";
+const FALLBACK_REF = "Qur'an 94:6";
+
 function greetingFor(name?: string) {
   const first = String(name || "Challenger").trim().split(/\s+/)[0] || "Challenger";
   const hour = new Date().getHours();
@@ -78,6 +82,9 @@ export default function DashboardPage() {
   const dateLabel = today.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
   const dailyLearning = getDailyLearningItem(today);
   const isFriday = today.getDay() === 5;
+  const arabicText = dailyLearning.arabicText || FALLBACK_ARABIC;
+  const englishText = dailyLearning.shortText || FALLBACK_ENGLISH;
+  const referenceText = dailyLearning.reference || FALLBACK_REF;
 
   return (
     <main className={pageBg}>
@@ -97,18 +104,21 @@ export default function DashboardPage() {
         <Link href="/learning" className="block rounded-[2rem] bg-emerald-950 p-6 text-white shadow-xl transition hover:-translate-y-1 hover:shadow-2xl">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-sm font-black text-emerald-300">Today's learning</p>
-              <h2 className="mt-1 text-3xl font-black">{dailyLearning.title}</h2>
+              <p className="text-sm font-black text-emerald-300">Today's Qur'an / Hadith</p>
+              <h2 className="mt-1 text-3xl font-black">{dailyLearning.title || "With hardship comes ease"}</h2>
             </div>
             <span className="rounded-full bg-emerald-400 px-4 py-2 text-xs font-black text-slate-950">Open library</span>
           </div>
-          {dailyLearning.arabicText && (
-            <p dir="rtl" className="mt-5 text-right text-3xl font-black leading-loose text-white">
-              {dailyLearning.arabicText}
+
+          <div className="mt-5 rounded-[1.5rem] border border-emerald-300/30 bg-white/10 p-5">
+            <p className="mb-2 text-xs font-black uppercase tracking-wide text-emerald-200">Arabic</p>
+            <p dir="rtl" lang="ar" className="text-right text-4xl font-black leading-loose text-white">
+              {arabicText}
             </p>
-          )}
-          <p className="mt-5 text-lg font-semibold leading-8 text-emerald-50">{dailyLearning.shortText}</p>
-          <p className="mt-2 text-xs font-black text-emerald-200">{dailyLearning.reference}</p>
+          </div>
+
+          <p className="mt-5 text-lg font-semibold leading-8 text-emerald-50">{englishText}</p>
+          <p className="mt-2 text-xs font-black text-emerald-200">{referenceText}</p>
         </Link>
 
         <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
