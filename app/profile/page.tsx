@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ensureUserRecord } from "@/lib/supabase/ensure-user-record";
@@ -27,11 +27,11 @@ export default function ProfilePage() {
     load();
   }, [router]);
 
-  const stats = useMemo(() => computePillarStats(), []);
-  const overallRank = getRankFromScore(stats.overallScore);
-
   if (!draft) return <main className={pageBg}><section className={`${cardClass} mx-auto max-w-xl`}>Loading profile…</section></main>;
 
+  const stats = computePillarStats(draft.pillar_scores || {});
+  const overallRank = getRankFromScore(stats.overallScore);
+  const currentScore = Number(draft.current_score || stats.totalScore || 0);
   const currentDay = Math.min(daysBetween(draft.startDate, draft.endDate) || 1, dayOfChallenge(draft.startDate));
   const totalDays = daysBetween(draft.startDate, draft.endDate) || 1;
   const name = draft.name || "Challenger";
@@ -50,7 +50,7 @@ export default function ProfilePage() {
               <h1 className="mt-1 text-4xl font-black">{name}</h1>
               <p className="mt-2 text-xl font-black text-emerald-200">{stats.title}</p>
               <p className="mt-1 text-lg font-black" dir="rtl">{stats.titleArabic}</p>
-              <p className="mt-2 text-sm font-bold text-slate-300">Challenge Day {currentDay} of {totalDays} • Overall {stats.overallRank}</p>
+              <p className="mt-2 text-sm font-bold text-slate-300">Challenge Day {currentDay} of {totalDays} • Overall {stats.overallRank} • {currentScore.toFixed(1)} / 100</p>
             </div>
           </div>
         </section>
@@ -60,7 +60,7 @@ export default function ProfilePage() {
             <div>
               <p className="text-sm font-black text-emerald-700">The 5 Pillars</p>
               <h2 className="text-3xl font-black">Your growth profile</h2>
-              <p className="mt-2 text-sm text-slate-600">These stats will fill from saved check-ins. For today’s demo, the system is clean and ready without fake points.</p>
+              <p className="mt-2 text-sm text-slate-600">These stats now grow from your saved check-ins. Log today to increase Quwwah, Imaan, Sabr, Niyyah, and Adab.</p>
             </div>
             <span className={`rounded-full px-4 py-2 text-sm font-black ${overallRank.color}`}>{stats.overallRank}</span>
           </div>
@@ -76,11 +76,11 @@ export default function ProfilePage() {
                   </div>
                   <div className="text-left md:text-right">
                     <p className="text-sm font-black text-slate-950">{pillar.rank}</p>
-                    <p className="text-xs font-bold text-slate-500">{pillar.score}/100</p>
+                    <p className="text-xs font-bold text-slate-500">{pillar.score.toFixed(1)}/100</p>
                   </div>
                 </div>
                 <div className="mt-3 h-3 rounded-full bg-white">
-                  <div className="h-3 rounded-full bg-emerald-500" style={{ width: `${pillar.score}%` }} />
+                  <div className="h-3 rounded-full bg-emerald-500" style={{ width: `${Math.min(100, pillar.score)}%` }} />
                 </div>
               </div>
             ))}
@@ -88,19 +88,20 @@ export default function ProfilePage() {
         </section>
 
         <section className="grid gap-4 md:grid-cols-3">
-          <div className={cardClass}><p className="text-sm font-bold text-slate-500">Total</p><p className="mt-1 text-3xl font-black">{stats.totalScore} / 500</p></div>
+          <div className={cardClass}><p className="text-sm font-bold text-slate-500">Challenge Score</p><p className="mt-1 text-3xl font-black">{currentScore.toFixed(1)} / 100</p></div>
           <div className={cardClass}><p className="text-sm font-bold text-slate-500">Strongest Pillar</p><p className="mt-1 text-3xl font-black">{stats.strongest.name}</p></div>
           <div className={cardClass}><p className="text-sm font-bold text-slate-500">Current Title</p><p className="mt-1 text-2xl font-black">{stats.title}</p></div>
         </section>
 
         <section className="rounded-[2rem] bg-emerald-100 p-5 text-emerald-950">
-          <p className="font-black">Next stats step</p>
-          <p className="mt-1 text-sm font-semibold">Connect saved daily check-ins to Quwwah, Imaan, Sabr, Niyyah, and Adab so this character sheet grows automatically.</p>
+          <p className="font-black">Stats are connected</p>
+          <p className="mt-1 text-sm font-semibold">Your Character Sheet reads saved check-in points from Supabase. The next backend upgrade is moving this from onboarding_draft into a dedicated daily_logs table.</p>
         </section>
 
         <div className="flex flex-wrap gap-3">
           <Link href="/dashboard" className="rounded-full bg-slate-950 px-5 py-3 font-black text-white">Back to dashboard</Link>
-          <Link href="/ranks" className="rounded-full bg-emerald-600 px-5 py-3 font-black text-white">View rank ladder</Link>
+          <Link href="/check-in" className="rounded-full bg-emerald-600 px-5 py-3 font-black text-white">Log today</Link>
+          <Link href="/ranks" className="rounded-full bg-emerald-100 px-5 py-3 font-black text-emerald-950">View rank ladder</Link>
         </div>
       </div>
     </main>
