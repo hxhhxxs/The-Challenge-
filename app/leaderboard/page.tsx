@@ -14,13 +14,14 @@ type LeaderboardUser = { id: string; name?: string; username?: string; display_n
 function safeName(user: LeaderboardUser, currentUserId: string) { if (user.id === currentUserId) return "You"; return user.display_name || user.username || user.onboarding_draft?.name || user.name || "Challenger"; }
 function scoreFor(user: LeaderboardUser) { return Number(user.current_score ?? user.onboarding_draft?.current_score ?? 0); }
 function pillarsFor(user: LeaderboardUser) { return (user.pillar_scores || user.onboarding_draft?.pillar_scores || {}) as Record<string, number>; }
+function titleFor(user: LeaderboardUser) { return scoreFor(user) > 0 ? computePillarStats(pillarsFor(user)).title : "Just Starting"; }
 
 export default function LeaderboardPage() {
   const router = useRouter();
   const [draft, setDraft] = useState<Record<string, any> | null>(null);
   const [currentUserId, setCurrentUserId] = useState("");
   const [users, setUsers] = useState<LeaderboardUser[]>([]);
-  const [loadMessage, setLoadMessage] = useState("Loading real users…");
+  const [loadMessage, setLoadMessage] = useState("Loading leaderboard…");
 
   useEffect(() => {
     async function load() {
@@ -32,25 +33,24 @@ export default function LeaderboardPage() {
       const loadedDraft = (record.onboarding_draft || {}) as Record<string, any>;
       setDraft(loadedDraft);
 
-      const { data: rpcRows, error: rpcError } = await supabase.rpc("get_leaderboard");
+      const { data: rpcRows } = await supabase.rpc("get_leaderboard");
       let mapped = (rpcRows || []) as LeaderboardUser[];
-      if (rpcError || mapped.length === 0) {
-        const { data: rows, error } = await supabase.from("users").select("id,name,username,display_name,current_score,pillar_scores,onboarding_draft").order("current_score", { ascending: false });
-        if (error || !rows) { mapped = []; setLoadMessage(`Could not load all users. ${rpcError?.message || error?.message || "Unknown error"}`); }
-        else { mapped = rows as LeaderboardUser[]; setLoadMessage(`${mapped.length} real users loaded from direct query.`); }
-      } else {
-        setLoadMessage(`${mapped.length} real users loaded from leaderboard RPC.`);
+      if (mapped.length === 0) {
+        const { data: rows } = await supabase.from("users").select("id,name,username,display_name,current_score,pillar_scores,onboarding_draft").order("current_score", { ascending: false });
+        mapped = (rows || []) as LeaderboardUser[];
       }
-
       if (!mapped.some((user) => user.id === data.user.id)) {
         mapped.push({ id: data.user.id, name: loadedDraft.name, current_score: (record as any).current_score ?? loadedDraft.current_score ?? 0, pillar_scores: (record as any).pillar_scores ?? loadedDraft.pillar_scores ?? {}, onboarding_draft: loadedDraft });
       }
       setUsers(mapped);
+      setLoadMessage(`${mapped.length} challengers found`);
     }
     load();
   }, [router]);
 
   const sortedUsers = useMemo(() => [...users].sort((a, b) => scoreFor(b) - scoreFor(a)), [users]);
+  const activeUsers = sortedUsers.filter((user) => scoreFor(user) > 0);
+  const startingUsers = sortedUsers.filter((user) => scoreFor(user) <= 0);
 
   if (!draft) return <main className={pageBg}><section className={`${cardClass} mx-auto max-w-xl`}>Loading leaderboard…</section></main>;
 
@@ -64,32 +64,34 @@ export default function LeaderboardPage() {
     <main className={pageBg}>
       <div className="mx-auto max-w-6xl space-y-6">
         <section className="rounded-[2rem] bg-slate-950 p-6 text-white">
-          <p className="text-sm font-bold text-emerald-300">Leaderboard • live build v3</p>
-          <h1 className="mt-1 text-4xl font-black">All real users.</h1>
+          <p className="text-sm font-bold text-emerald-300">Leaderboard</p>
+          <h1 className="mt-1 text-4xl font-black">Compete in good.</h1>
           <p className="mt-2 text-slate-300">{loadMessage}</p>
         </section>
 
         <section className={cardClass}>
           <div className="rounded-2xl bg-emerald-50 p-5">
-            <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center"><div><p className="text-sm font-bold text-slate-500">Your pinned row</p><p className="text-xl font-black text-slate-950">#{yourPosition} You</p><p className="mt-1 text-sm font-black text-emerald-800">{yourStats.title}</p><p className="mt-1 text-sm text-slate-600">If you still see only this box and no list below, Vercel has not deployed the latest file.</p></div><div className="flex flex-wrap items-center gap-3"><span className={`rounded-full px-5 py-3 font-black ${yourRankInfo.color}`}>{yourStats.overallRank}</span><span className="rounded-full bg-white px-5 py-3 font-black text-emerald-700">{yourScore.toFixed(1)}/100</span></div></div>
+            <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center"><div><p className="text-sm font-bold text-slate-500">Your position</p><p className="text-xl font-black text-slate-950">#{yourPosition} You</p><p className="mt-1 text-sm font-black text-emerald-800">{yourScore > 0 ? yourStats.title : "Just Starting"}</p></div><div className="flex flex-wrap items-center gap-3"><span className={`rounded-full px-5 py-3 font-black ${yourRankInfo.color}`}>{yourStats.overallRank}</span><span className="rounded-full bg-white px-5 py-3 font-black text-emerald-700">{yourScore.toFixed(1)}/100</span></div></div>
           </div>
         </section>
 
         <section className={cardClass}>
-          <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end"><div><p className="text-sm font-black text-emerald-700">Overall leaderboard</p><h2 className="text-3xl font-black">{sortedUsers.length} users loaded</h2></div><p className="text-sm font-bold text-slate-500">Real Supabase users</p></div>
-          <div className="mt-5 space-y-3">
-            {sortedUsers.map((user, index) => {
-              const stats = computePillarStats(pillarsFor(user));
-              const rank = getRankFromScore(stats.overallScore);
-              const score = scoreFor(user);
-              const isYou = user.id === currentUserId;
-              return <div key={user.id} className={`rounded-2xl p-4 ${isYou ? "bg-emerald-50 ring-2 ring-emerald-300" : "bg-slate-50"}`}><div className="flex flex-col justify-between gap-3 md:flex-row md:items-center"><div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-sm font-black text-white">#{index + 1}</div><div><p className="text-lg font-black text-slate-950">{safeName(user, currentUserId)}</p><p className="text-sm font-bold text-emerald-700">{stats.title}</p></div></div><div className="flex flex-wrap items-center gap-2"><span className={`rounded-full px-4 py-2 text-xs font-black ${rank.color}`}>{stats.overallRank}</span><span className="rounded-full bg-white px-4 py-2 text-xs font-black text-slate-700">{score.toFixed(1)}/100</span></div></div></div>;
-            })}
-          </div>
+          <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end"><div><p className="text-sm font-black text-emerald-700">Active leaderboard</p><h2 className="text-3xl font-black">{activeUsers.length} active challengers</h2></div><p className="text-sm font-bold text-slate-500">Sorted by score</p></div>
+          {activeUsers.length === 0 ? <p className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-600">Leaderboard opens when challengers start logging points. Be the first to move.</p> : <div className="mt-5 space-y-3">{activeUsers.map((user, index) => <LeaderboardRow key={user.id} user={user} index={index} currentUserId={currentUserId} />)}</div>}
         </section>
 
-        <div className="flex flex-wrap gap-3"><Link href="/dashboard" className="inline-block rounded-full bg-slate-950 px-5 py-3 font-black text-white">Back to dashboard</Link><Link href="/profile" className="inline-block rounded-full bg-emerald-600 px-5 py-3 font-black text-white">Open Character Sheet</Link><Link href="/check-in" className="inline-block rounded-full bg-emerald-100 px-5 py-3 font-black text-emerald-900">Log today</Link></div>
+        {startingUsers.length > 0 && <section className={cardClass}><p className="text-sm font-black text-slate-500">Just starting</p><h2 className="mt-1 text-2xl font-black">{startingUsers.length} challengers have not logged points yet</h2><div className="mt-4 grid gap-3 md:grid-cols-2">{startingUsers.map((user) => <div key={user.id} className="rounded-2xl bg-slate-50 p-4"><p className="font-black text-slate-950">{safeName(user, currentUserId)}</p><p className="text-sm font-bold text-slate-500">Just Starting • 0.0/100</p></div>)}</div></section>}
+
+        <div className="flex flex-wrap gap-3"><Link href="/dashboard" className="inline-block rounded-full bg-slate-950 px-5 py-3 font-black text-white">Back to dashboard</Link><Link href="/progress" className="inline-block rounded-full bg-emerald-600 px-5 py-3 font-black text-white">View Progress</Link><Link href="/check-in" className="inline-block rounded-full bg-emerald-100 px-5 py-3 font-black text-emerald-900">Log today</Link></div>
       </div>
     </main>
   );
+}
+
+function LeaderboardRow({ user, index, currentUserId }: { user: LeaderboardUser; index: number; currentUserId: string }) {
+  const stats = computePillarStats(pillarsFor(user));
+  const rank = getRankFromScore(stats.overallScore);
+  const score = scoreFor(user);
+  const isYou = user.id === currentUserId;
+  return <div className={`rounded-2xl p-4 ${isYou ? "bg-emerald-50 ring-2 ring-emerald-300" : "bg-slate-50"}`}><div className="flex flex-col justify-between gap-3 md:flex-row md:items-center"><div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-sm font-black text-white">#{index + 1}</div><div><p className="text-lg font-black text-slate-950">{safeName(user, currentUserId)}</p><p className="text-sm font-bold text-emerald-700">{titleFor(user)}</p></div></div><div className="flex flex-wrap items-center gap-2"><span className={`rounded-full px-4 py-2 text-xs font-black ${rank.color}`}>{stats.overallRank}</span><span className="rounded-full bg-white px-4 py-2 text-xs font-black text-slate-700">{score.toFixed(1)}/100</span></div></div></div>;
 }
