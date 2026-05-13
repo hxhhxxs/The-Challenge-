@@ -51,6 +51,8 @@ function RankEmblem({ score }: { score: number }) {
 export default function DashboardPage() {
   const router = useRouter();
   const [draft, setDraft] = useState<Record<string, any> | null>(null);
+  const [userScore, setUserScore] = useState<number | null>(null);
+  const [userPillars, setUserPillars] = useState<Record<string, number> | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -66,6 +68,8 @@ export default function DashboardPage() {
         return;
       }
       setDraft((record.onboarding_draft || {}) as Record<string, any>);
+      setUserScore(Number((record as any).current_score ?? (record.onboarding_draft as any)?.current_score ?? 0));
+      setUserPillars(((record as any).pillar_scores || (record.onboarding_draft as any)?.pillar_scores || {}) as Record<string, number>);
     }
     load();
   }, [router]);
@@ -74,9 +78,9 @@ export default function DashboardPage() {
     return <main className={pageBg}><section className={`${cardClass} mx-auto max-w-xl`}>Loading dashboard…</section></main>;
   }
 
-  const stats = computePillarStats(draft.pillar_scores || {});
+  const stats = computePillarStats(userPillars || draft.pillar_scores || {});
   const rank = getRankFromScore(stats.overallScore);
-  const currentScore = Number(draft.current_score || stats.totalScore || 0);
+  const currentScore = Number(userScore ?? draft.current_score ?? stats.totalScore ?? 0);
   const scoreLabel = currentScore.toFixed(1);
   const today = new Date();
   const currentDay = Math.min(daysBetween(draft.startDate, draft.endDate) || 1, dayOfChallenge(draft.startDate));
@@ -114,9 +118,7 @@ export default function DashboardPage() {
 
           <div className="mt-5 rounded-[1.5rem] border border-emerald-300/30 bg-white/10 p-5">
             <p className="mb-2 text-xs font-black uppercase tracking-wide text-emerald-200">Arabic</p>
-            <p dir="rtl" lang="ar" className="text-right text-4xl font-black leading-loose text-white">
-              {arabicText}
-            </p>
+            <p dir="rtl" lang="ar" className="text-right text-4xl font-black leading-loose text-white">{arabicText}</p>
           </div>
 
           <p className="mt-5 text-lg font-semibold leading-8 text-emerald-50">{englishText}</p>
