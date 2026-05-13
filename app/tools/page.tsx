@@ -2,6 +2,7 @@ import Link from "next/link";
 import { cardClass, pageBg } from "@/lib/challenge-ui";
 
 const tools = [
+  { title: "Progress", href: "/progress", icon: "chart", description: "See your current score, pace, 5 Pillars breakdown, and recent saved check-ins.", tag: "Score" },
   { title: "Learning Library", href: "/learning", icon: "book", description: "Browse verses, hadiths, Sahaba stories, Prophet ﷺ stories, and challenge content.", tag: "Faith" },
   { title: "Implementation Intentions", href: "/intentions", icon: "target", description: "Write exactly what you will do, when you will do it, and where you will do it.", tag: "Planning" },
   { title: "Ramadan Mode", href: "/ramadan", icon: "moon", description: "Track fasting, Taraweeh, suhoor, iftar, Qur’an pacing, and Ramadan missions.", tag: "Faith" },
@@ -21,7 +22,7 @@ export default function ToolsPage() {
         <section className="rounded-[2rem] bg-slate-950 p-6 text-white">
           <p className="text-sm font-bold text-emerald-300">Challenge Tools</p>
           <h1 className="mt-1 text-4xl font-black">Everything that makes the challenge stronger.</h1>
-          <p className="mt-2 max-w-2xl text-slate-300">Open the special modes, learning library, accountability tools, review pages, share cards, and food logging from one place.</p>
+          <p className="mt-2 max-w-2xl text-slate-300">Open progress, learning, special modes, accountability tools, review pages, share cards, and food logging from one place.</p>
         </section>
 
         <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -42,12 +43,13 @@ export default function ToolsPage() {
 
         <section className="rounded-[2rem] bg-emerald-100 p-5 text-emerald-950">
           <p className="font-black">Presentation note</p>
-          <p className="mt-1 text-sm font-semibold">The learning library is now in the app. The next backend layer can seed the full 6-month content bank into Supabase.</p>
+          <p className="mt-1 text-sm font-semibold">Progress, learning, and tracking are now connected in the app. The next backend layer can move check-ins into a dedicated daily_logs table.</p>
         </section>
 
         <div className="flex flex-wrap gap-3">
           <Link href="/dashboard" className="rounded-full bg-slate-950 px-5 py-3 font-black text-white">Back to dashboard</Link>
-          <Link href="/learning" className="rounded-full bg-emerald-600 px-5 py-3 font-black text-white">Learning Library</Link>
+          <Link href="/progress" className="rounded-full bg-emerald-600 px-5 py-3 font-black text-white">Progress</Link>
+          <Link href="/learning" className="rounded-full bg-emerald-100 px-5 py-3 font-black text-emerald-950">Learning Library</Link>
         </div>
       </div>
     </main>
@@ -56,6 +58,7 @@ export default function ToolsPage() {
 
 function LineIcon({ kind }: { kind: string }) {
   const paths: Record<string, string> = {
+    chart: "M4 19V5M8 17v-6M13 17V8M18 17v-9M4 19h17",
     book: "M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 0 4 19.5v-15Z",
     target: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10ZM12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z",
     moon: "M21 12.8A8.5 8.5 0 1 1 11.2 3 6.5 6.5 0 0 0 21 12.8Z",
