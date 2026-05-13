@@ -6,6 +6,14 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ensureUserRecord } from "@/lib/supabase/ensure-user-record";
 import { cardClass, daysBetween, formatNum, pageBg } from "@/lib/challenge-ui";
 
+function localTodayKey() {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export default function PlanPreviewPage() {
   const router = useRouter();
   const [draft, setDraft] = useState<Record<string, any> | null>(null);
@@ -24,8 +32,17 @@ export default function PlanPreviewPage() {
   }, [router]);
 
   async function start() {
+    if (!draft || !userId) return;
     const supabase = createSupabaseBrowserClient();
-    await supabase.from("users").update({ onboarding_complete: true }).eq("id", userId);
+    const today = localTodayKey();
+    const stableStart = draft.challenge_started_at || draft.startDate || today;
+    const nextDraft = {
+      ...draft,
+      startDate: draft.startDate || stableStart,
+      challenge_started_at: stableStart,
+      challenge_started_local_date: stableStart,
+    };
+    await supabase.from("users").update({ onboarding_complete: true, onboarding_draft: nextDraft }).eq("id", userId);
     router.push("/dashboard");
   }
 
