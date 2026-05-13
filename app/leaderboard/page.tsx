@@ -1,11 +1,39 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { cardClass, pageBg } from "@/lib/challenge-ui";
 import { getRankFromScore } from "@/lib/ranks";
 import { computePillarStats } from "@/lib/pillars";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { ensureUserRecord } from "@/lib/supabase/ensure-user-record";
 
 export default function LeaderboardPage() {
+  const router = useRouter();
   const tabs = ["Overall", "Quwwah", "Imaan", "Sabr", "Niyyah", "Adab", "Streak", "Friends"];
-  const stats = computePillarStats();
+  const [draft, setDraft] = useState<Record<string, any> | null>(null);
+
+  useEffect(() => {
+    async function load() {
+      const supabase = createSupabaseBrowserClient();
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) {
+        router.push("/login");
+        return;
+      }
+      const record = await ensureUserRecord(data.user);
+      setDraft((record.onboarding_draft || {}) as Record<string, any>);
+    }
+    load();
+  }, [router]);
+
+  if (!draft) {
+    return <main className={pageBg}><section className={`${cardClass} mx-auto max-w-xl`}>Loading leaderboard…</section></main>;
+  }
+
+  const stats = computePillarStats(draft.pillar_scores || {});
+  const currentScore = Number(draft.current_score || stats.totalScore || 0);
   const yourRank = getRankFromScore(stats.overallScore);
 
   return (
@@ -14,7 +42,7 @@ export default function LeaderboardPage() {
         <section className="rounded-[2rem] bg-slate-950 p-6 text-white">
           <p className="text-sm font-bold text-emerald-300">Leaderboard</p>
           <h1 className="mt-1 text-4xl font-black">Climb with your character.</h1>
-          <p className="mt-2 text-slate-300">No fake users are shown. Your leaderboard identity uses the same rank, title, and 5 Pillars shown on your Character Sheet.</p>
+          <p className="mt-2 text-slate-300">No fake users are shown. Your leaderboard identity uses your real saved score, title, rank, and 5 Pillars.</p>
         </section>
 
         <section className={cardClass}>
@@ -30,11 +58,11 @@ export default function LeaderboardPage() {
                 <p className="text-sm font-bold text-slate-500">Your row</p>
                 <p className="text-xl font-black text-slate-950">1. You</p>
                 <p className="mt-1 text-sm font-black text-emerald-800">{stats.title}</p>
-                <p className="mt-1 text-sm text-slate-600">Your rank is based on your overall 5 Pillars score. Start logging daily check-ins to grow it.</p>
+                <p className="mt-1 text-sm text-slate-600">Your leaderboard row is pinned here. It updates when your check-in saves points.</p>
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <span className={`rounded-full px-5 py-3 font-black ${yourRank.color}`}>{stats.overallRank}</span>
-                <span className="rounded-full bg-white px-5 py-3 font-black text-emerald-700">{stats.overallScore}/100</span>
+                <span className="rounded-full bg-white px-5 py-3 font-black text-emerald-700">{currentScore.toFixed(1)}/100</span>
               </div>
             </div>
             <div className="mt-5">
@@ -58,12 +86,18 @@ export default function LeaderboardPage() {
                 <h3 className="mt-1 font-black text-slate-950">{pillar.name}</h3>
                 <p className="mt-1 text-xs font-bold text-slate-500">{pillar.meaning}</p>
                 <p className="mt-3 text-sm font-black text-slate-900">{pillar.rank}</p>
+                <p className="mt-1 text-xs font-bold text-slate-500">{pillar.score.toFixed(1)}/100</p>
                 <div className="mt-2 h-2 rounded-full bg-white">
-                  <div className="h-2 rounded-full bg-emerald-500" style={{ width: `${pillar.score}%` }} />
+                  <div className="h-2 rounded-full bg-emerald-500" style={{ width: `${Math.min(100, pillar.score)}%` }} />
                 </div>
               </Link>
             ))}
           </div>
+        </section>
+
+        <section className={cardClass}>
+          <h2 className="text-2xl font-black">Where are the other users?</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">The public board opens once 5+ real users opt into active challenges. Until then, the app only shows your pinned row and does not invent fake competitors.</p>
         </section>
 
         <section className={cardClass}>
@@ -79,7 +113,7 @@ export default function LeaderboardPage() {
         <div className="flex flex-wrap gap-3">
           <Link href="/dashboard" className="inline-block rounded-full bg-slate-950 px-5 py-3 font-black text-white">Back to dashboard</Link>
           <Link href="/profile" className="inline-block rounded-full bg-emerald-600 px-5 py-3 font-black text-white">Open Character Sheet</Link>
-          <Link href="/ranks" className="inline-block rounded-full bg-emerald-100 px-5 py-3 font-black text-emerald-900">View rank system</Link>
+          <Link href="/check-in" className="inline-block rounded-full bg-emerald-100 px-5 py-3 font-black text-emerald-900">Log today</Link>
         </div>
       </div>
     </main>
