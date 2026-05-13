@@ -12,6 +12,8 @@ import { computePillarStats } from "@/lib/pillars";
 export default function ProfilePage() {
   const router = useRouter();
   const [draft, setDraft] = useState<Record<string, any> | null>(null);
+  const [userScore, setUserScore] = useState<number | null>(null);
+  const [userPillars, setUserPillars] = useState<Record<string, number> | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -22,16 +24,19 @@ export default function ProfilePage() {
         return;
       }
       const record = await ensureUserRecord(data.user);
-      setDraft((record.onboarding_draft || {}) as Record<string, any>);
+      const loadedDraft = (record.onboarding_draft || {}) as Record<string, any>;
+      setDraft(loadedDraft);
+      setUserScore(Number((record as any).current_score ?? loadedDraft.current_score ?? 0));
+      setUserPillars(((record as any).pillar_scores || loadedDraft.pillar_scores || {}) as Record<string, number>);
     }
     load();
   }, [router]);
 
   if (!draft) return <main className={pageBg}><section className={`${cardClass} mx-auto max-w-xl`}>Loading profile…</section></main>;
 
-  const stats = computePillarStats(draft.pillar_scores || {});
+  const stats = computePillarStats(userPillars || draft.pillar_scores || {});
   const overallRank = getRankFromScore(stats.overallScore);
-  const currentScore = Number(draft.current_score || stats.totalScore || 0);
+  const currentScore = Number(userScore ?? draft.current_score ?? stats.totalScore ?? 0);
   const currentDay = Math.min(daysBetween(draft.startDate, draft.endDate) || 1, dayOfChallenge(draft.startDate));
   const totalDays = daysBetween(draft.startDate, draft.endDate) || 1;
   const name = draft.name || "Challenger";
@@ -60,7 +65,7 @@ export default function ProfilePage() {
             <div>
               <p className="text-sm font-black text-emerald-700">The 5 Pillars</p>
               <h2 className="text-3xl font-black">Your growth profile</h2>
-              <p className="mt-2 text-sm text-slate-600">These stats now grow from your saved check-ins. Log today to increase Quwwah, Imaan, Sabr, Niyyah, and Adab.</p>
+              <p className="mt-2 text-sm text-slate-600">These stats grow from your saved check-ins and read from the real user score columns first.</p>
             </div>
             <span className={`rounded-full px-4 py-2 text-sm font-black ${overallRank.color}`}>{stats.overallRank}</span>
           </div>
@@ -95,13 +100,14 @@ export default function ProfilePage() {
 
         <section className="rounded-[2rem] bg-emerald-100 p-5 text-emerald-950">
           <p className="font-black">Stats are connected</p>
-          <p className="mt-1 text-sm font-semibold">Your Character Sheet reads saved check-in points from Supabase. The next backend upgrade is moving this from onboarding_draft into a dedicated daily_logs table.</p>
+          <p className="mt-1 text-sm font-semibold">Profile now reads users.current_score and users.pillar_scores first, with onboarding_draft as backup.</p>
         </section>
 
         <div className="flex flex-wrap gap-3">
           <Link href="/dashboard" className="rounded-full bg-slate-950 px-5 py-3 font-black text-white">Back to dashboard</Link>
           <Link href="/check-in" className="rounded-full bg-emerald-600 px-5 py-3 font-black text-white">Log today</Link>
-          <Link href="/ranks" className="rounded-full bg-emerald-100 px-5 py-3 font-black text-emerald-950">View rank ladder</Link>
+          <Link href="/progress" className="rounded-full bg-emerald-100 px-5 py-3 font-black text-emerald-950">Progress</Link>
+          <Link href="/ranks" className="rounded-full bg-white px-5 py-3 font-black text-slate-950">View rank ladder</Link>
         </div>
       </div>
     </main>
