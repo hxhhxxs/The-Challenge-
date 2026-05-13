@@ -9,12 +9,18 @@ import { cardClass, inputClass, pageBg } from "@/lib/challenge-ui";
 
 type Draft = Record<string, any>;
 
+function cleanLongText(value: unknown) {
+  const text = String(value || "").trim();
+  return text.length >= 20 ? text : "";
+}
+
 export default function WhyResetPage() {
   const router = useRouter();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [goal1Why, setGoal1Why] = useState("");
   const [goal2Why, setGoal2Why] = useState("");
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -27,13 +33,18 @@ export default function WhyResetPage() {
       const record = await ensureUserRecord(data.user);
       const loadedDraft = (record.onboarding_draft || {}) as Draft;
       setDraft(loadedDraft);
-      setGoal1Why(String(loadedDraft.goal1Why || ""));
-      setGoal2Why(String(loadedDraft.goal2Why || ""));
+      setGoal1Why(cleanLongText(loadedDraft.goal1Why));
+      setGoal2Why(cleanLongText(loadedDraft.goal2Why));
     }
     load();
   }, [router]);
 
   async function saveWhy() {
+    setError("");
+    if (goal1Why.trim().length < 20 || goal2Why.trim().length < 20) {
+      setError("Each why needs at least one real sentence, 20+ characters. Short answers like 's' or 'wf' are not saved.");
+      return;
+    }
     const supabase = createSupabaseBrowserClient();
     const { data } = await supabase.auth.getUser();
     if (!data.user || !draft) return;
@@ -53,31 +64,20 @@ export default function WhyResetPage() {
         <section className="rounded-[2rem] bg-slate-950 p-6 text-white">
           <p className="text-sm font-bold text-emerald-300">Reset Prompt</p>
           <h1 className="mt-1 text-4xl font-black">Why are you doing this?</h1>
-          <p className="mt-2 max-w-2xl text-slate-300">When motivation fades, your own words matter most. Read them again. Keep them or refresh them.</p>
+          <p className="mt-2 max-w-2xl text-slate-300">When motivation fades, your own words matter most. Weak old answers are hidden until you replace them with something meaningful.</p>
         </section>
 
         <section className="rounded-[2rem] bg-amber-100 p-5 text-amber-950">
-          <p className="text-sm font-black uppercase tracking-wide">When this should appear</p>
-          <p className="mt-1 text-sm font-semibold">Every 14 days, or after 3 missed days, the app should show this prompt before the dashboard.</p>
+          <p className="text-sm font-black uppercase tracking-wide">Real reason required</p>
+          <p className="mt-1 text-sm font-semibold">Write at least one full sentence for each goal. This becomes the reminder your future self sees when discipline drops.</p>
         </section>
 
         <section className="grid gap-4 md:grid-cols-2">
-          <WhyCard
-            title={draft.goal1 || "Personal Goal 1"}
-            task={draft.goal1Task || "Daily task"}
-            endGoal={draft.goal1End || "End goal not set yet."}
-            why={goal1Why}
-            onChange={setGoal1Why}
-          />
-          <WhyCard
-            title={draft.goal2 || "Personal Goal 2"}
-            task={draft.goal2Task || "Daily task"}
-            endGoal={draft.goal2End || "End goal not set yet."}
-            why={goal2Why}
-            onChange={setGoal2Why}
-          />
+          <WhyCard title={draft.goal1 || "Personal Goal 1"} task={draft.goal1Task || "Daily task"} endGoal={cleanLongText(draft.goal1End) || "End goal needs to be rewritten."} why={goal1Why} onChange={setGoal1Why} />
+          <WhyCard title={draft.goal2 || "Personal Goal 2"} task={draft.goal2Task || "Daily task"} endGoal={cleanLongText(draft.goal2End) || "End goal needs to be rewritten."} why={goal2Why} onChange={setGoal2Why} />
         </section>
 
+        {error && <p className="rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}
         {saved && <p className="rounded-xl bg-emerald-50 p-3 text-sm font-bold text-emerald-800">Your why was refreshed.</p>}
 
         <div className="flex flex-wrap gap-3">
@@ -107,9 +107,9 @@ function WhyCard({ title, task, endGoal, why, onChange }: { title: string; task:
       </div>
       <label className="mt-5 block">
         <span className="text-sm font-bold text-slate-700">Is this still your why?</span>
-        <textarea className={inputClass} rows={5} value={why} onChange={(e) => onChange(e.target.value)} placeholder="Write one full sentence about why this still matters to you." />
+        <textarea className={inputClass} rows={5} value={why} onChange={(e) => onChange(e.target.value)} placeholder="Example: Because I want to become disciplined enough to trust myself again and build a life that pleases Allah." />
       </label>
-      <p className={`mt-2 text-xs font-bold ${strongEnough ? "text-emerald-700" : "text-amber-700"}`}>{strongEnough ? "Strong why ✓" : "Add a little more detail so your future self feels it."}</p>
+      <p className={`mt-2 text-xs font-bold ${strongEnough ? "text-emerald-700" : "text-amber-700"}`}>{strongEnough ? "Strong why ✓" : "Add a full sentence before saving."}</p>
     </div>
   );
 }
