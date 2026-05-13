@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { cardClass, inputClass, pageBg } from "@/lib/challenge-ui";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ensureUserRecord } from "@/lib/supabase/ensure-user-record";
+import { aggregateCheckInScores, computePointsFromSavedCheckIn } from "@/lib/scoring";
 
 type Entry = {
   id: number;
@@ -56,6 +57,7 @@ export default function CheckInPage() {
   const [error, setError] = useState("");
   const [userId, setUserId] = useState("");
   const [draft, setDraft] = useState<Record<string, any>>({});
+  const [computedTotal, setComputedTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [proof, setProof] = useState<ProofState>({});
@@ -89,6 +91,7 @@ export default function CheckInPage() {
         setGoals(saved.goals || { goal1: "", goal2: "" });
         setSalah(saved.salah || { Fajr: false, Dhuhr: false, Asr: false, Maghrib: false, Isha: false });
         setReflection(saved.reflection || { mood: "", notes: "", slipped: "", wentWell: "" });
+        setComputedTotal(Number(saved.computedPoints?.total || 0));
       }
       setLoading(false);
     }
@@ -111,7 +114,7 @@ export default function CheckInPage() {
     setSaving(true);
     setError("");
     const supabase = createSupabaseBrowserClient();
-    const payload = {
+    const payloadWithoutPoints = {
       entries: next?.entries || entries,
       weight: next?.weight ?? weight,
       sleep: next?.sleep || sleep,
@@ -121,12 +124,20 @@ export default function CheckInPage() {
       updatedAt: new Date().toISOString(),
       localDate: todayKey,
     };
-    const nextDraft = {
+    const computedPoints = computePointsFromSavedCheckIn(draft, payloadWithoutPoints);
+    const payload = { ...payloadWithoutPoints, computedPoints };
+    const nextDraftWithoutAggregate = {
       ...draft,
       checkins: {
         ...(draft.checkins || {}),
         [todayKey]: payload,
       },
+    };
+    const aggregate = aggregateCheckInScores(nextDraftWithoutAggregate);
+    const nextDraft = {
+      ...nextDraftWithoutAggregate,
+      current_score: aggregate.total,
+      pillar_scores: aggregate.pillars,
     };
     const { error: saveError } = await supabase.from("users").update({ onboarding_draft: nextDraft }).eq("id", userId);
     setSaving(false);
@@ -135,8 +146,9 @@ export default function CheckInPage() {
       return;
     }
     setDraft(nextDraft);
-    setMessage(successMessage);
-    setTimeout(() => setMessage(""), 1800);
+    setComputedTotal(computedPoints.total || 0);
+    setMessage(`${successMessage} • Today: ${Number(computedPoints.total || 0).toFixed(3)} pts`);
+    setTimeout(() => setMessage(""), 2200);
   }
 
   function addEntry(category: keyof EntryState, entry: Omit<Entry, "id">) {
@@ -178,7 +190,8 @@ export default function CheckInPage() {
         <section className="rounded-[2rem] bg-slate-950 p-6 text-white">
           <p className="text-sm font-bold text-emerald-300">Tracking Today</p>
           <h1 className="mt-1 text-4xl font-black">Log things as they happen.</h1>
-          <p className="mt-2 max-w-2xl text-slate-300">Add multiple entries in each category. Every save is written to your account, so refreshes will not wipe your day.</p>
+          <p className="mt-2 max-w-2xl text-slate-300">Add multiple entries in each category. Every save updates today’s points and persists to your account.</p>
+          <p className="mt-4 inline-block rounded-full bg-emerald-400 px-4 py-2 text-sm font-black text-slate-950">Today’s points: {computedTotal.toFixed(3)}</p>
         </section>
 
         {saving && <p className="rounded-xl bg-slate-50 p-3 text-sm font-bold text-slate-700">Saving…</p>}
