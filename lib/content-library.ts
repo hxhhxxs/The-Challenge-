@@ -3,6 +3,7 @@ export type LearningItem = {
   type: "verse" | "hadith" | "sahaba_story" | "prophet_story" | "daily_task" | "weekly_task" | "joy_task";
   title: string;
   shortText: string;
+  arabicText?: string;
   fullText?: string;
   reference?: string;
   themes: string[];
@@ -10,27 +11,27 @@ export type LearningItem = {
 };
 
 export const verseBank: LearningItem[] = [
-  { id: "verse-001", type: "verse", title: "Allah does not burden a soul", shortText: "Allah does not burden a soul beyond its capacity.", reference: "Qur'an 2:286", themes: ["Trust", "Hope"], readingTimeSeconds: 30 },
-  { id: "verse-002", type: "verse", title: "With hardship comes ease", shortText: "With hardship comes ease. Indeed, with hardship comes ease.", reference: "Qur'an 94:5-6", themes: ["Hope", "Patience"], readingTimeSeconds: 30 },
-  { id: "verse-003", type: "verse", title: "Change begins within", shortText: "Allah will not change the condition of a people until they change themselves.", reference: "Qur'an 13:11", themes: ["Self-work", "Discipline"], readingTimeSeconds: 30 },
-  { id: "verse-004", type: "verse", title: "Allah is enough", shortText: "Whoever relies on Allah, He is enough for him.", reference: "Qur'an 65:3", themes: ["Trust", "Tawakkul"], readingTimeSeconds: 30 },
-  { id: "verse-005", type: "verse", title: "Do not despair", shortText: "Do not despair of the mercy of Allah.", reference: "Qur'an 39:53", themes: ["Mercy", "Repentance"], readingTimeSeconds: 30 },
-  { id: "verse-006", type: "verse", title: "Good tidings to the patient", shortText: "Give good tidings to the patient.", reference: "Qur'an 2:155", themes: ["Patience"], readingTimeSeconds: 30 },
-  { id: "verse-007", type: "verse", title: "Remember Me", shortText: "Remember Me, and I will remember you.", reference: "Qur'an 2:152", themes: ["Dhikr"], readingTimeSeconds: 30 },
-  { id: "verse-008", type: "verse", title: "Gratitude increases", shortText: "If you are grateful, I will surely increase you.", reference: "Qur'an 14:7", themes: ["Gratitude"], readingTimeSeconds: 30 },
-  { id: "verse-009", type: "verse", title: "Seek help through prayer", shortText: "Seek help through patience and prayer.", reference: "Qur'an 2:45", themes: ["Salah", "Patience"], readingTimeSeconds: 30 },
-  { id: "verse-010", type: "verse", title: "Compete in good", shortText: "Compete with one another in good deeds.", reference: "Qur'an 2:148", themes: ["Action", "Competition"], readingTimeSeconds: 30 },
+  { id: "verse-001", type: "verse", title: "Allah does not burden a soul", arabicText: "لَا يُكَلِّفُ اللَّهُ نَفْسًا إِلَّا وُسْعَهَا", shortText: "Allah does not burden a soul beyond its capacity.", reference: "Qur'an 2:286", themes: ["Trust", "Hope"], readingTimeSeconds: 30 },
+  { id: "verse-002", type: "verse", title: "With hardship comes ease", arabicText: "فَإِنَّ مَعَ الْعُسْرِ يُسْرًا ۝ إِنَّ مَعَ الْعُسْرِ يُسْرًا", shortText: "With hardship comes ease. Indeed, with hardship comes ease.", reference: "Qur'an 94:5-6", themes: ["Hope", "Patience"], readingTimeSeconds: 30 },
+  { id: "verse-003", type: "verse", title: "Change begins within", arabicText: "إِنَّ اللَّهَ لَا يُغَيِّرُ مَا بِقَوْمٍ حَتَّىٰ يُغَيِّرُوا مَا بِأَنفُسِهِمْ", shortText: "Allah will not change the condition of a people until they change themselves.", reference: "Qur'an 13:11", themes: ["Self-work", "Discipline"], readingTimeSeconds: 30 },
+  { id: "verse-004", type: "verse", title: "Allah is enough", arabicText: "وَمَن يَتَوَكَّلْ عَلَى اللَّهِ فَهُوَ حَسْبُهُ", shortText: "Whoever relies on Allah, He is enough for him.", reference: "Qur'an 65:3", themes: ["Trust", "Tawakkul"], readingTimeSeconds: 30 },
+  { id: "verse-005", type: "verse", title: "Do not despair", arabicText: "لَا تَقْنَطُوا مِن رَّحْمَةِ اللَّهِ", shortText: "Do not despair of the mercy of Allah.", reference: "Qur'an 39:53", themes: ["Mercy", "Repentance"], readingTimeSeconds: 30 },
+  { id: "verse-006", type: "verse", title: "Good tidings to the patient", arabicText: "وَبَشِّرِ الصَّابِرِينَ", shortText: "Give good tidings to the patient.", reference: "Qur'an 2:155", themes: ["Patience"], readingTimeSeconds: 30 },
+  { id: "verse-007", type: "verse", title: "Remember Me", arabicText: "فَاذْكُرُونِي أَذْكُرْكُمْ", shortText: "Remember Me, and I will remember you.", reference: "Qur'an 2:152", themes: ["Dhikr"], readingTimeSeconds: 30 },
+  { id: "verse-008", type: "verse", title: "Gratitude increases", arabicText: "لَئِن شَكَرْتُمْ لَأَزِيدَنَّكُمْ", shortText: "If you are grateful, I will surely increase you.", reference: "Qur'an 14:7", themes: ["Gratitude"], readingTimeSeconds: 30 },
+  { id: "verse-009", type: "verse", title: "Seek help through prayer", arabicText: "وَاسْتَعِينُوا بِالصَّبْرِ وَالصَّلَاةِ", shortText: "Seek help through patience and prayer.", reference: "Qur'an 2:45", themes: ["Salah", "Patience"], readingTimeSeconds: 30 },
+  { id: "verse-010", type: "verse", title: "Compete in good", arabicText: "فَاسْتَبِقُوا الْخَيْرَاتِ", shortText: "Compete with one another in good deeds.", reference: "Qur'an 2:148", themes: ["Action", "Competition"], readingTimeSeconds: 30 },
 ];
 
 export const hadithBank: LearningItem[] = [
-  { id: "hadith-001", type: "hadith", title: "Actions by intentions", shortText: "Actions are judged by intentions, and every person will have what they intended.", reference: "Bukhari and Muslim — Umar", themes: ["Niyyah", "Sincerity"], readingTimeSeconds: 40 },
-  { id: "hadith-002", type: "hadith", title: "Speak good or remain silent", shortText: "Whoever believes in Allah and the Last Day should speak good or remain silent.", reference: "Bukhari and Muslim — Abu Hurairah", themes: ["Speech", "Character"], readingTimeSeconds: 40 },
-  { id: "hadith-003", type: "hadith", title: "Best to family", shortText: "The best of you are those who are best to their families.", reference: "Tirmidhi — Aisha", themes: ["Family", "Character"], readingTimeSeconds: 40 },
-  { id: "hadith-004", type: "hadith", title: "Smiling is charity", shortText: "Smiling at your brother is charity.", reference: "Tirmidhi — Abu Dharr", themes: ["Character", "Charity"], readingTimeSeconds: 30 },
-  { id: "hadith-005", type: "hadith", title: "Real strength", shortText: "The strong person is the one who controls themselves in anger.", reference: "Bukhari — Abu Hurairah", themes: ["Self-control", "Sabr"], readingTimeSeconds: 40 },
-  { id: "hadith-006", type: "hadith", title: "Small consistent deeds", shortText: "The most beloved deeds to Allah are those done consistently, even if small.", reference: "Bukhari and Muslim — Aisha", themes: ["Consistency", "Discipline"], readingTimeSeconds: 40 },
-  { id: "hadith-007", type: "hadith", title: "Good word", shortText: "A good word is charity.", reference: "Bukhari and Muslim — Abu Hurairah", themes: ["Speech", "Charity"], readingTimeSeconds: 30 },
-  { id: "hadith-008", type: "hadith", title: "Knowledge path", shortText: "Whoever travels a path seeking knowledge, Allah makes easy for them a path to Paradise.", reference: "Muslim — Abu Hurairah", themes: ["Knowledge"], readingTimeSeconds: 45 },
+  { id: "hadith-001", type: "hadith", title: "Actions by intentions", arabicText: "إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ", shortText: "Actions are judged by intentions, and every person will have what they intended.", reference: "Bukhari and Muslim — Umar", themes: ["Niyyah", "Sincerity"], readingTimeSeconds: 40 },
+  { id: "hadith-002", type: "hadith", title: "Speak good or remain silent", arabicText: "مَنْ كَانَ يُؤْمِنُ بِاللَّهِ وَالْيَوْمِ الآخِرِ فَلْيَقُلْ خَيْرًا أَوْ لِيَصْمُتْ", shortText: "Whoever believes in Allah and the Last Day should speak good or remain silent.", reference: "Bukhari and Muslim — Abu Hurairah", themes: ["Speech", "Character"], readingTimeSeconds: 40 },
+  { id: "hadith-003", type: "hadith", title: "Best to family", arabicText: "خَيْرُكُمْ خَيْرُكُمْ لِأَهْلِهِ", shortText: "The best of you are those who are best to their families.", reference: "Tirmidhi — Aisha", themes: ["Family", "Character"], readingTimeSeconds: 40 },
+  { id: "hadith-004", type: "hadith", title: "Smiling is charity", arabicText: "تَبَسُّمُكَ فِي وَجْهِ أَخِيكَ صَدَقَةٌ", shortText: "Smiling at your brother is charity.", reference: "Tirmidhi — Abu Dharr", themes: ["Character", "Charity"], readingTimeSeconds: 30 },
+  { id: "hadith-005", type: "hadith", title: "Real strength", arabicText: "لَيْسَ الشَّدِيدُ بِالصُّرَعَةِ، إِنَّمَا الشَّدِيدُ الَّذِي يَمْلِكُ نَفْسَهُ عِنْدَ الْغَضَبِ", shortText: "The strong person is the one who controls themselves in anger.", reference: "Bukhari — Abu Hurairah", themes: ["Self-control", "Sabr"], readingTimeSeconds: 40 },
+  { id: "hadith-006", type: "hadith", title: "Small consistent deeds", arabicText: "أَحَبُّ الأَعْمَالِ إِلَى اللَّهِ أَدْوَمُهَا وَإِنْ قَلَّ", shortText: "The most beloved deeds to Allah are those done consistently, even if small.", reference: "Bukhari and Muslim — Aisha", themes: ["Consistency", "Discipline"], readingTimeSeconds: 40 },
+  { id: "hadith-007", type: "hadith", title: "Good word", arabicText: "الْكَلِمَةُ الطَّيِّبَةُ صَدَقَةٌ", shortText: "A good word is charity.", reference: "Bukhari and Muslim — Abu Hurairah", themes: ["Speech", "Charity"], readingTimeSeconds: 30 },
+  { id: "hadith-008", type: "hadith", title: "Knowledge path", arabicText: "مَنْ سَلَكَ طَرِيقًا يَلْتَمِسُ فِيهِ عِلْمًا سَهَّلَ اللَّهُ لَهُ بِهِ طَرِيقًا إِلَى الْجَنَّةِ", shortText: "Whoever travels a path seeking knowledge, Allah makes easy for them a path to Paradise.", reference: "Muslim — Abu Hurairah", themes: ["Knowledge"], readingTimeSeconds: 45 },
 ];
 
 export const sahabaStories: LearningItem[] = [
