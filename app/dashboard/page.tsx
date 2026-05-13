@@ -8,13 +8,7 @@ import { ensureUserRecord } from "@/lib/supabase/ensure-user-record";
 import { cardClass, dayOfChallenge, daysBetween, pageBg } from "@/lib/challenge-ui";
 import { getRankFromScore } from "@/lib/ranks";
 import { computePillarStats } from "@/lib/pillars";
-
-const spiritualCards = [
-  { label: "Verse of the day", theme: "After difficulty, ease.", arabic: "فَإِنَّ مَعَ الْعُسْرِ يُسْرًا", translation: "Indeed, with hardship comes ease.", source: "Qur'an 94:6" },
-  { label: "Du'a of the day", theme: "Ask Allah for growth.", arabic: "رَبِّ زِدْنِي عِلْمًا", translation: "My Lord, increase me in knowledge.", source: "Qur'an 20:114" },
-  { label: "Du'a of the day", theme: "Remember. Thank. Worship beautifully.", arabic: "اللَّهُمَّ أَعِنِّي عَلَى ذِكْرِكَ وَشُكْرِكَ وَحُسْنِ عِبَادَتِكَ", translation: "O Allah, help me remember You, thank You, and worship You beautifully.", source: "Daily du'a" },
-  { label: "Verse of the day", theme: "Taqwa opens a way.", arabic: "وَمَن يَتَّقِ اللَّهَ يَجْعَل لَّهُ مَخْرَجًا", translation: "Whoever is mindful of Allah, He will make a way out for them.", source: "Qur'an 65:2" },
-];
+import { getDailyLearningItem } from "@/lib/content-library";
 
 function greetingFor(name?: string) {
   const first = String(name || "Challenger").trim().split(/\s+/)[0] || "Challenger";
@@ -82,7 +76,7 @@ export default function DashboardPage() {
   const currentDay = Math.min(daysBetween(draft.startDate, draft.endDate) || 1, dayOfChallenge(draft.startDate));
   const totalDays = daysBetween(draft.startDate, draft.endDate) || 1;
   const dateLabel = today.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
-  const spiritual = spiritualCards[(currentDay + today.getDay()) % spiritualCards.length];
+  const dailyLearning = getDailyLearningItem(today);
   const isFriday = today.getDay() === 5;
 
   return (
@@ -100,25 +94,24 @@ export default function DashboardPage() {
           </div>
         </header>
 
-        <section className="rounded-[2rem] bg-emerald-950 p-6 text-white shadow-xl">
+        <Link href="/learning" className="block rounded-[2rem] bg-emerald-950 p-6 text-white shadow-xl transition hover:-translate-y-1 hover:shadow-2xl">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-sm font-black text-emerald-300">{spiritual.label}</p>
-              <h2 className="mt-1 text-3xl font-black">{spiritual.theme}</h2>
+              <p className="text-sm font-black text-emerald-300">Today's learning</p>
+              <h2 className="mt-1 text-3xl font-black">{dailyLearning.title}</h2>
             </div>
-            <span className="rounded-full bg-emerald-400 px-4 py-2 text-xs font-black text-slate-950">Daily</span>
+            <span className="rounded-full bg-emerald-400 px-4 py-2 text-xs font-black text-slate-950">Open library</span>
           </div>
-          <p className="mt-5 text-right text-3xl font-black leading-loose" dir="rtl">{spiritual.arabic}</p>
-          <p className="mt-3 text-base font-semibold leading-7 text-emerald-50">{spiritual.translation}</p>
-          <p className="mt-2 text-xs font-black text-emerald-200">{spiritual.source}</p>
-        </section>
+          <p className="mt-5 text-lg font-semibold leading-8 text-emerald-50">{dailyLearning.shortText}</p>
+          <p className="mt-2 text-xs font-black text-emerald-200">{dailyLearning.reference}</p>
+        </Link>
 
         <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <HomeCard href="/check-in" icon={<LineIcon kind="check" />} label="Tracking Today" title="Log today’s mission" text="Open the full tracking page for calories, water, steps, exercise, Qur’an, salah, goals, and tasks." badge="Today" />
           <HomeCard href="/leaderboard" icon={<LineIcon kind="trophy" />} label="Leaderboard" title="See the board" text="View your leaderboard row and the real-user ranking system. No fake users shown." badge={stats.overallRank} />
           <HomeCard href="/ranks" icon={<RankEmblem score={stats.overallScore} />} label="Ranking" title={stats.overallRank} text={`Current title: ${stats.title}. Next: ${rank.nextRank}.`} badge={`${rank.progressToNext}%`} />
           <HomeCard href="/profile" icon={<LineIcon kind="profile" />} label="Character Sheet" title="5 Pillars" text="View Quwwah, Imaan, Sabr, Niyyah, and Adab as your growth stats." badge="Profile" />
-          <HomeCard href="/weekly-review" icon={<LineIcon kind="note" />} label="Reflection" title="Review your week" text="Use reflection to see what went well, what slipped, and what needs to change next." badge="Due weekly" />
+          <HomeCard href="/learning" icon={<LineIcon kind="book" />} label="Learning Library" title="Verses, hadiths, stories" text="Browse daily verses, hadiths, Sahaba stories, Prophet ﷺ stories, and challenge tasks." badge="Faith" />
           <HomeCard href="/tools" icon={<LineIcon kind="tools" />} label="Tools" title="Challenge tools" text="Open Ramadan Mode, partner, share cards, food photo logging, why reset, and more." badge="Hub" />
         </section>
 
@@ -159,9 +152,9 @@ function LineIcon({ kind }: { kind: string }) {
   const paths: Record<string, string> = {
     check: "M5 13l4 4L19 7",
     trophy: "M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4ZM17 6h3a3 3 0 0 1-3 3M7 6H4a3 3 0 0 0 3 3",
-    note: "M6 4h12v16H6zM9 8h6M9 12h6M9 16h4",
     tools: "M14 7l-7 7M5 19l4-1 9-9-3-3-9 9-1 4Z",
     profile: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0",
+    book: "M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 0 4 19.5v-15Z",
   };
   return <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d={paths[kind] || paths.check} /></svg>;
 }
