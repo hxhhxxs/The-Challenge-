@@ -60,6 +60,10 @@ export function roundOne(value: number) {
   return Math.round(value * 10) / 10;
 }
 
+export function roundThree(value: number) {
+  return Math.round(value * 1000) / 1000;
+}
+
 export function moreIsBetterScore(actual = 0, target = 1, bonusCap = 1.2) {
   if (target <= 0) return 0;
   return clamp(actual / target, 0, bonusCap) / bonusCap;
@@ -147,12 +151,12 @@ export function computeDailyPoints(challenge: ChallengeScoringInput, log: DailyL
   const character = characterRaw * characterMax;
 
   return {
-    body: roundOne(body),
-    quran: roundOne(quran),
-    discipline: roundOne(discipline),
-    personal: roundOne(personal),
-    character: roundOne(character),
-    total: roundOne(body + quran + discipline + personal + character),
+    body: roundThree(body),
+    quran: roundThree(quran),
+    discipline: roundThree(discipline),
+    personal: roundThree(personal),
+    character: roundThree(character),
+    total: roundThree(body + quran + discipline + personal + character),
     warnings,
   };
 }
@@ -184,4 +188,95 @@ export function computePaceStatus(currentScore: number, dayNumber: number, total
 export function isPerfectDay(pointsEarned: number, totalDays: number) {
   const dailyMax = 100 / Math.max(30, totalDays);
   return pointsEarned >= dailyMax * 0.9;
+}
+
+function sumEntries(entries?: Array<{ amount?: number }>) {
+  return (entries || []).reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0);
+}
+
+function dateDiffDays(start?: string) {
+  if (!start) return 1;
+  const today = new Date();
+  const startDay = new Date(`${String(start).slice(0, 10)}T00:00:00`);
+  const todayDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  return Math.max(1, Math.floor((todayDay.getTime() - startDay.getTime()) / 86400000) + 1);
+}
+
+function daysBetween(start?: string, end?: string) {
+  if (!start || !end) return 90;
+  const startDay = new Date(`${String(start).slice(0, 10)}T00:00:00`);
+  const endDay = new Date(`${String(end).slice(0, 10)}T00:00:00`);
+  return Math.max(30, Math.floor((endDay.getTime() - startDay.getTime()) / 86400000) + 1);
+}
+
+function timeToMinutes(value?: string) {
+  if (!value || !value.includes(":")) return undefined;
+  const [hours, minutes] = value.split(":").map(Number);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return undefined;
+  return hours * 60 + minutes;
+}
+
+export function computePointsFromSavedCheckIn(draft: Record<string, any>, saved: Record<string, any>) {
+  const entries = saved.entries || {};
+  const challenge: ChallengeScoringInput = {
+    totalDays: daysBetween(draft.startDate, draft.endDate),
+    dayNumber: dateDiffDays(draft.startDate),
+    gender: draft.gender || "prefer_not_to_say",
+    startingWeight: Number(draft.currentWeightLbs || draft.currentWeight || 0),
+    goalWeight: Number(draft.goalWeightLbs || draft.goalWeight || 0),
+    currentWeight: Number(saved.weight || draft.currentWeightLbs || 0),
+    calorieTarget: Number(draft.calorieTarget || 2200),
+    stepGoal: Number(draft.stepTarget || 10000),
+    waterGoal: Number(draft.waterTarget || 8),
+    exerciseMinuteGoal: Number(draft.exerciseMinutes || draft.workoutMinutes || 45),
+    memorizeGoal: Number(draft.quranDailyTarget || draft.dailyMemorizeGoal || 1),
+    reviewGoal: Number(draft.quranReviewTarget || draft.dailyReviewGoal || 1),
+    screenTimeLimit: Number(draft.screenTimeLimit || 3),
+    moneyDailyPaceLimit: Number(draft.moneyDailyPaceLimit || 25),
+    monthlyLimitScoreAverage: 1,
+    wakeTargetMinutes: timeToMinutes(draft.wakeTime),
+  };
+
+  const salahValues = Object.values(saved.salah || {});
+  const reflection = saved.reflection || {};
+  const log: DailyLogScoringInput = {
+    weight: Number(saved.weight || 0),
+    calories: sumEntries(entries.calories),
+    water: sumEntries(entries.water),
+    steps: sumEntries(entries.steps),
+    exerciseMinutes: sumEntries(entries.exercise),
+    quranMemorized: sumEntries(entries.quranMemorized),
+    quranReviewed: sumEntries(entries.quranReviewed),
+    salahCompleted: salahValues.filter(Boolean).length,
+    salahOnTime: 0,
+    sleepHours: Number(saved.sleep?.hours || 0),
+    wakeActualMinutes: timeToMinutes(saved.sleep?.wake),
+    screenTimeHours: sumEntries(entries.screen),
+    moneySpent: sumEntries(entries.money),
+    personalGoal1: saved.goals?.goal1 || "missed",
+    personalGoal2: saved.goals?.goal2 || "missed",
+    randomTasksCompleted: 0,
+    joyTaskDone: false,
+    reflectionSubmitted: Boolean(reflection.mood || reflection.notes || reflection.slipped || reflection.wentWell),
+    serviceOrFamilyExtra: false,
+  };
+
+  return computeDailyPoints(challenge, log);
+}
+
+export function aggregateCheckInScores(draft: Record<string, any>) {
+  const checkins = draft.checkins || {};
+  return Object.values(checkins).reduce(
+    (acc: any, checkin: any) => {
+      const points = checkin.computedPoints || computePointsFromSavedCheckIn(draft, checkin);
+      acc.total += points.total || 0;
+      acc.pillars.quwwah += points.body || 0;
+      acc.pillars.imaan += points.quran || 0;
+      acc.pillars.sabr += points.discipline || 0;
+      acc.pillars.niyyah += points.personal || 0;
+      acc.pillars.adab += points.character || 0;
+      return acc;
+    },
+    { total: 0, pillars: { quwwah: 0, imaan: 0, sabr: 0, niyyah: 0, adab: 0 } }
+  );
 }
