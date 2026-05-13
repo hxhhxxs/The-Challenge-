@@ -6,24 +6,8 @@ import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ensureUserRecord } from "@/lib/supabase/ensure-user-record";
 import { cardClass, dayOfChallenge, daysBetween, pageBg } from "@/lib/challenge-ui";
-import { formatRank, getRankFromScore } from "@/lib/ranks";
-
-const pillars = [
-  { key: "quwwah", name: "Quwwah", arabic: "قُوَّة", meaning: "Strength", score: 0, description: "Body, steps, exercise, water, calories." },
-  { key: "imaan", name: "Imaan", arabic: "إِيمَان", meaning: "Faith", score: 0, description: "Qur'an, salah, worship, dhikr." },
-  { key: "sabr", name: "Sabr", arabic: "صَبْر", meaning: "Discipline", score: 0, description: "Sleep, screen time, money, limits." },
-  { key: "niyyah", name: "Niyyah", arabic: "نِيَّة", meaning: "Mission", score: 0, description: "Personal goals and intention." },
-  { key: "adab", name: "Adab", arabic: "أَدَب", meaning: "Character", score: 0, description: "Reflection, service, family, joy tasks." },
-];
-
-const titleMap: Record<string, { english: string; arabic: string }> = {
-  quwwah: { english: "The Strong", arabic: "القَوِيّ" },
-  imaan: { english: "The Steadfast", arabic: "الثَّابِت" },
-  sabr: { english: "The Patient", arabic: "الصَّابِر" },
-  niyyah: { english: "The Sincere", arabic: "الْمُخْلِص" },
-  adab: { english: "The Refined", arabic: "الْمُهَذَّب" },
-  balanced: { english: "Al-Muwazin — The Balanced", arabic: "المُوَازِن" },
-};
+import { getRankFromScore } from "@/lib/ranks";
+import { computePillarStats } from "@/lib/pillars";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -43,11 +27,8 @@ export default function ProfilePage() {
     load();
   }, [router]);
 
-  const total = useMemo(() => pillars.reduce((sum, pillar) => sum + pillar.score, 0), []);
-  const overallScore = Math.round(total / 5);
-  const overallRank = getRankFromScore(overallScore);
-  const strongest = pillars[0];
-  const title = titleMap.balanced;
+  const stats = useMemo(() => computePillarStats(), []);
+  const overallRank = getRankFromScore(stats.overallScore);
 
   if (!draft) return <main className={pageBg}><section className={`${cardClass} mx-auto max-w-xl`}>Loading profile…</section></main>;
 
@@ -67,9 +48,9 @@ export default function ProfilePage() {
             <div>
               <p className="text-sm font-bold text-emerald-300">Character Sheet</p>
               <h1 className="mt-1 text-4xl font-black">{name}</h1>
-              <p className="mt-2 text-xl font-black text-emerald-200">{title.english}</p>
-              <p className="mt-1 text-lg font-black" dir="rtl">{title.arabic}</p>
-              <p className="mt-2 text-sm font-bold text-slate-300">Challenge Day {currentDay} of {totalDays} • Overall {formatRank(overallScore)}</p>
+              <p className="mt-2 text-xl font-black text-emerald-200">{stats.title}</p>
+              <p className="mt-1 text-lg font-black" dir="rtl">{stats.titleArabic}</p>
+              <p className="mt-2 text-sm font-bold text-slate-300">Challenge Day {currentDay} of {totalDays} • Overall {stats.overallRank}</p>
             </div>
           </div>
         </section>
@@ -79,40 +60,42 @@ export default function ProfilePage() {
             <div>
               <p className="text-sm font-black text-emerald-700">The 5 Pillars</p>
               <h2 className="text-3xl font-black">Your growth profile</h2>
-              <p className="mt-2 text-sm text-slate-600">Each pillar becomes a real stat once daily check-ins save to your account.</p>
+              <p className="mt-2 text-sm text-slate-600">These stats will fill from saved check-ins. For today’s demo, the system is clean and ready without fake points.</p>
             </div>
-            <span className={`rounded-full px-4 py-2 text-sm font-black ${overallRank.color}`}>{formatRank(overallScore)}</span>
+            <span className={`rounded-full px-4 py-2 text-sm font-black ${overallRank.color}`}>{stats.overallRank}</span>
           </div>
 
           <div className="mt-6 space-y-4">
-            {pillars.map((pillar) => {
-              const rank = getRankFromScore(pillar.score);
-              return (
-                <div key={pillar.key} className="rounded-2xl bg-slate-50 p-4">
-                  <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
-                    <div>
-                      <p className="text-sm font-black text-emerald-700">{pillar.arabic}</p>
-                      <h3 className="text-xl font-black">{pillar.name} — {pillar.meaning}</h3>
-                      <p className="mt-1 text-sm text-slate-600">{pillar.description}</p>
-                    </div>
-                    <div className="text-left md:text-right">
-                      <p className="text-sm font-black text-slate-950">{formatRank(pillar.score)}</p>
-                      <p className="text-xs font-bold text-slate-500">{pillar.score}/100</p>
-                    </div>
+            {stats.pillars.map((pillar) => (
+              <div key={pillar.key} className="rounded-2xl bg-slate-50 p-4">
+                <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
+                  <div>
+                    <p className="text-sm font-black text-emerald-700">{pillar.arabic}</p>
+                    <h3 className="text-xl font-black">{pillar.name} — {pillar.meaning}</h3>
+                    <p className="mt-1 text-sm text-slate-600">{pillar.description}</p>
                   </div>
-                  <div className="mt-3 h-3 rounded-full bg-white">
-                    <div className="h-3 rounded-full bg-emerald-500" style={{ width: `${pillar.score}%` }} />
+                  <div className="text-left md:text-right">
+                    <p className="text-sm font-black text-slate-950">{pillar.rank}</p>
+                    <p className="text-xs font-bold text-slate-500">{pillar.score}/100</p>
                   </div>
                 </div>
-              );
-            })}
+                <div className="mt-3 h-3 rounded-full bg-white">
+                  <div className="h-3 rounded-full bg-emerald-500" style={{ width: `${pillar.score}%` }} />
+                </div>
+              </div>
+            ))}
           </div>
         </section>
 
         <section className="grid gap-4 md:grid-cols-3">
-          <div className={cardClass}><p className="text-sm font-bold text-slate-500">Total</p><p className="mt-1 text-3xl font-black">{total} / 500</p></div>
-          <div className={cardClass}><p className="text-sm font-bold text-slate-500">Strongest Pillar</p><p className="mt-1 text-3xl font-black">{strongest.name}</p></div>
-          <div className={cardClass}><p className="text-sm font-bold text-slate-500">Next Unlock</p><p className="mt-1 text-3xl font-black">Bronze Title</p></div>
+          <div className={cardClass}><p className="text-sm font-bold text-slate-500">Total</p><p className="mt-1 text-3xl font-black">{stats.totalScore} / 500</p></div>
+          <div className={cardClass}><p className="text-sm font-bold text-slate-500">Strongest Pillar</p><p className="mt-1 text-3xl font-black">{stats.strongest.name}</p></div>
+          <div className={cardClass}><p className="text-sm font-bold text-slate-500">Current Title</p><p className="mt-1 text-2xl font-black">{stats.title}</p></div>
+        </section>
+
+        <section className="rounded-[2rem] bg-emerald-100 p-5 text-emerald-950">
+          <p className="font-black">Next stats step</p>
+          <p className="mt-1 text-sm font-semibold">Connect saved daily check-ins to Quwwah, Imaan, Sabr, Niyyah, and Adab so this character sheet grows automatically.</p>
         </section>
 
         <div className="flex flex-wrap gap-3">
