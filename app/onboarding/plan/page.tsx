@@ -35,12 +35,13 @@ export default function PlanPreviewPage() {
     if (!draft || !userId) return;
     const supabase = createSupabaseBrowserClient();
     const today = localTodayKey();
-    const stableStart = draft.challenge_started_at || draft.startDate || today;
+    const selectedStart = draft.startDate || today;
     const nextDraft = {
       ...draft,
-      startDate: draft.startDate || stableStart,
-      challenge_started_at: stableStart,
-      challenge_started_local_date: stableStart,
+      startDate: selectedStart,
+      challenge_started_at: selectedStart,
+      challenge_started_local_date: selectedStart,
+      challenge_status: selectedStart > today ? "scheduled" : "active",
     };
     await supabase.from("users").update({ onboarding_complete: true, onboarding_draft: nextDraft }).eq("id", userId);
     router.push("/dashboard");
@@ -48,8 +49,9 @@ export default function PlanPreviewPage() {
 
   if (!draft) return <main className={pageBg}><section className={`${cardClass} mx-auto max-w-xl`}>Building your challenge…</section></main>;
   const days = daysBetween(draft.startDate, draft.endDate);
+  const startsFuture = draft.startDate && draft.startDate > localTodayKey();
 
-  return <main className={pageBg}><section className={`${cardClass} mx-auto max-w-3xl`}><p className="text-sm font-bold text-emerald-700">Plan Preview</p><h1 className="mt-2 text-4xl font-black">Your challenge is ready.</h1><div className="mt-6 grid gap-4 md:grid-cols-2"><PlanItem label="Your challenge" value={`${days} days (${draft.startDate} → ${draft.endDate})`} /><PlanItem label="Weight target" value={`${draft.currentWeightLbs} lbs → ${draft.goalWeightLbs} lbs`} /><PlanItem label="Daily targets" value={`${draft.calorieTarget} cal • ${formatNum(draft.stepTarget)} steps • ${draft.waterTarget} water`} /><PlanItem label="Qur'an target" value={`${draft.dailyMemorizeGoal || draft.quranDailyTarget} ${draft.measurementUnit || "units"} memorize • ${draft.dailyReviewGoal || draft.quranReviewTarget} review`} /><PlanItem label="Personal Goal 1" value={`${draft.goal1}: ${draft.goal1Task}`} /><PlanItem label="Personal Goal 2" value={`${draft.goal2}: ${draft.goal2Task}`} /><PlanItem label="Score pace" value={`~${days ? (100 / days).toFixed(2) : "—"} points/day to hit 100`} /></div><div className="mt-6 flex gap-3"><button onClick={() => router.push("/onboarding")} className="rounded-full bg-slate-100 px-5 py-3 font-bold">Edit</button><button onClick={start} className="rounded-full bg-emerald-600 px-5 py-3 font-black text-white">Start Day 1</button></div></section></main>;
+  return <main className={pageBg}><section className={`${cardClass} mx-auto max-w-3xl`}><p className="text-sm font-bold text-emerald-700">Plan Preview</p><h1 className="mt-2 text-4xl font-black">Your challenge is ready.</h1>{startsFuture && <p className="mt-3 rounded-2xl bg-amber-50 p-4 text-sm font-bold text-amber-900">Your challenge is scheduled to start on {draft.startDate}. You can enter the dashboard now, but daily check-ins unlock on the start date.</p>}<div className="mt-6 grid gap-4 md:grid-cols-2"><PlanItem label="Your challenge" value={`${days} days (${draft.startDate} → ${draft.endDate})`} /><PlanItem label="Weight target" value={`${draft.currentWeightLbs} lbs → ${draft.goalWeightLbs} lbs`} /><PlanItem label="Daily targets" value={`${draft.calorieTarget} cal • ${formatNum(draft.stepTarget)} steps • ${draft.waterTarget} water`} /><PlanItem label="Qur'an target" value={`${draft.dailyMemorizeGoal || draft.quranDailyTarget} ${draft.measurementUnit || "units"} memorize • ${draft.dailyReviewGoal || draft.quranReviewTarget} review`} /><PlanItem label="Personal Goal 1" value={`${draft.goal1}: ${draft.goal1Task}`} /><PlanItem label="Personal Goal 2" value={`${draft.goal2}: ${draft.goal2Task}`} /><PlanItem label="Score pace" value={`~${days ? (100 / days).toFixed(2) : "—"} points/day to hit 100`} /></div><div className="mt-6 flex gap-3"><button onClick={() => router.push("/onboarding")} className="rounded-full bg-slate-100 px-5 py-3 font-bold">Edit</button><button onClick={start} className="rounded-full bg-emerald-600 px-5 py-3 font-black text-white">{startsFuture ? "Schedule Challenge" : "Start Day 1"}</button></div></section></main>;
 }
 
 function PlanItem({ label, value }: { label: string; value: string }) {
