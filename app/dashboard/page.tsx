@@ -125,6 +125,7 @@ export default function DashboardPage() {
 
         <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <HomeCard href="/check-in" icon={<LineIcon kind="check" />} label="Tracking Today" title="Log today’s mission" text="Open the full tracking page. Every save updates today’s points." badge={`${scoreLabel}/100`} />
+          <HomeCard href="/progress" icon={<LineIcon kind="chart" />} label="Progress" title="Score breakdown" text="See your score, pace, 5 Pillars, and recent saved check-ins." badge={`${scoreLabel}/100`} />
           <HomeCard href="/leaderboard" icon={<LineIcon kind="trophy" />} label="Leaderboard" title="See the board" text="View your leaderboard row and the real-user ranking system. No fake users shown." badge={stats.overallRank} />
           <HomeCard href="/ranks" icon={<RankEmblem score={stats.overallScore} />} label="Ranking" title={stats.overallRank} text={`Current title: ${stats.title}. Next: ${rank.nextRank}.`} badge={`${rank.progressToNext}%`} />
           <HomeCard href="/profile" icon={<LineIcon kind="profile" />} label="Character Sheet" title="5 Pillars" text="View Quwwah, Imaan, Sabr, Niyyah, and Adab as your growth stats." badge="Profile" />
@@ -139,7 +140,7 @@ export default function DashboardPage() {
               <h2 className="text-3xl font-black">{scoreLabel} / 100</h2>
               <p className="mt-1 text-sm font-semibold text-slate-600">Current rank: {stats.overallRank} • Title: {stats.title} • Next: {rank.nextRank}</p>
             </div>
-            <Link href="/profile" className="rounded-full bg-emerald-600 px-5 py-3 text-sm font-black text-white">Open Character Sheet</Link>
+            <Link href="/progress" className="rounded-full bg-emerald-600 px-5 py-3 text-sm font-black text-white">Open Progress</Link>
           </div>
           <div className="mt-5 h-3 rounded-full bg-slate-100">
             <div className="h-3 rounded-full bg-emerald-500" style={{ width: `${Math.min(100, currentScore)}%` }} />
@@ -168,6 +169,7 @@ function HomeCard({ href, icon, label, title, text, badge }: { href: string; ico
 function LineIcon({ kind }: { kind: string }) {
   const paths: Record<string, string> = {
     check: "M5 13l4 4L19 7",
+    chart: "M4 19V5M8 17v-6M13 17V8M18 17v-9M4 19h17",
     trophy: "M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4ZM17 6h3a3 3 0 0 1-3 3M7 6H4a3 3 0 0 0 3 3",
     tools: "M14 7l-7 7M5 19l4-1 9-9-3-3-9 9-1 4Z",
     profile: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0",
