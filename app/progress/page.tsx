@@ -18,9 +18,16 @@ function paceStatus(currentScore: number, day: number, totalDays: number) {
   return { label: "Danger", expected, color: "bg-red-100 text-red-900" };
 }
 
+function normalizeLog(row: any) {
+  const computed = row.computed_points || row.computedPoints || {};
+  return [row.date, { ...row, computedPoints: computed }];
+}
+
 export default function ProgressPage() {
   const router = useRouter();
   const [draft, setDraft] = useState<Record<string, any> | null>(null);
+  const [dailyLogs, setDailyLogs] = useState<any[]>([]);
+  const [sourceLabel, setSourceLabel] = useState("profile backup");
 
   useEffect(() => {
     async function load() {
@@ -31,12 +38,27 @@ export default function ProgressPage() {
         return;
       }
       const record = await ensureUserRecord(data.user);
-      setDraft((record.onboarding_draft || {}) as Record<string, any>);
+      const loadedDraft = (record.onboarding_draft || {}) as Record<string, any>;
+      setDraft(loadedDraft);
+
+      const { data: rows, error } = await supabase
+        .from("daily_logs")
+        .select("*")
+        .eq("user_id", data.user.id)
+        .order("date", { ascending: true });
+
+      if (!error && rows && rows.length > 0) {
+        setDailyLogs(rows.map(normalizeLog));
+        setSourceLabel("daily_logs");
+      } else {
+        setDailyLogs(Object.entries(loadedDraft.checkins || {}).sort(([a], [b]) => a.localeCompare(b)) as any[]);
+        setSourceLabel("profile backup");
+      }
     }
     load();
   }, [router]);
 
-  const checkins = useMemo(() => Object.entries(draft?.checkins || {}).sort(([a], [b]) => a.localeCompare(b)), [draft]);
+  const checkins = useMemo(() => dailyLogs, [dailyLogs]);
 
   if (!draft) return <main className={pageBg}><section className={`${cardClass} mx-auto max-w-xl`}>Loading progress…</section></main>;
 
@@ -71,7 +93,7 @@ export default function ProgressPage() {
           <div className={cardClass}>
             <p className="text-sm font-bold text-slate-500">Check-ins saved</p>
             <p className="mt-1 text-3xl font-black">{checkins.length}</p>
-            <p className="mt-1 text-sm font-bold text-emerald-700">Saved to your account</p>
+            <p className="mt-1 text-sm font-bold text-emerald-700">Source: {sourceLabel}</p>
           </div>
         </section>
 
