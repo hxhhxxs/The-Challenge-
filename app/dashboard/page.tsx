@@ -51,8 +51,6 @@ function RankEmblem({ score }: { score: number }) {
 export default function DashboardPage() {
   const router = useRouter();
   const [draft, setDraft] = useState<Record<string, any> | null>(null);
-  const stats = computePillarStats();
-  const rank = getRankFromScore(stats.overallScore);
 
   useEffect(() => {
     async function load() {
@@ -76,6 +74,10 @@ export default function DashboardPage() {
     return <main className={pageBg}><section className={`${cardClass} mx-auto max-w-xl`}>Loading dashboard…</section></main>;
   }
 
+  const stats = computePillarStats(draft.pillar_scores || {});
+  const rank = getRankFromScore(stats.overallScore);
+  const currentScore = Number(draft.current_score || stats.totalScore || 0);
+  const scoreLabel = currentScore.toFixed(1);
   const today = new Date();
   const currentDay = Math.min(daysBetween(draft.startDate, draft.endDate) || 1, dayOfChallenge(draft.startDate));
   const totalDays = daysBetween(draft.startDate, draft.endDate) || 1;
@@ -122,7 +124,7 @@ export default function DashboardPage() {
         </Link>
 
         <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <HomeCard href="/check-in" icon={<LineIcon kind="check" />} label="Tracking Today" title="Log today’s mission" text="Open the full tracking page for calories, water, steps, exercise, Qur’an, salah, goals, and tasks." badge="Today" />
+          <HomeCard href="/check-in" icon={<LineIcon kind="check" />} label="Tracking Today" title="Log today’s mission" text="Open the full tracking page. Every save updates today’s points." badge={`${scoreLabel}/100`} />
           <HomeCard href="/leaderboard" icon={<LineIcon kind="trophy" />} label="Leaderboard" title="See the board" text="View your leaderboard row and the real-user ranking system. No fake users shown." badge={stats.overallRank} />
           <HomeCard href="/ranks" icon={<RankEmblem score={stats.overallScore} />} label="Ranking" title={stats.overallRank} text={`Current title: ${stats.title}. Next: ${rank.nextRank}.`} badge={`${rank.progressToNext}%`} />
           <HomeCard href="/profile" icon={<LineIcon kind="profile" />} label="Character Sheet" title="5 Pillars" text="View Quwwah, Imaan, Sabr, Niyyah, and Adab as your growth stats." badge="Profile" />
@@ -133,14 +135,14 @@ export default function DashboardPage() {
         <section className={cardClass}>
           <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
             <div>
-              <p className="text-sm font-black text-emerald-700">Next promotion</p>
-              <h2 className="text-3xl font-black">{rank.nextRank}</h2>
-              <p className="mt-1 text-sm font-semibold text-slate-600">Current rank: {stats.overallRank} • Title: {stats.title}</p>
+              <p className="text-sm font-black text-emerald-700">Current score</p>
+              <h2 className="text-3xl font-black">{scoreLabel} / 100</h2>
+              <p className="mt-1 text-sm font-semibold text-slate-600">Current rank: {stats.overallRank} • Title: {stats.title} • Next: {rank.nextRank}</p>
             </div>
             <Link href="/profile" className="rounded-full bg-emerald-600 px-5 py-3 text-sm font-black text-white">Open Character Sheet</Link>
           </div>
           <div className="mt-5 h-3 rounded-full bg-slate-100">
-            <div className="h-3 rounded-full bg-emerald-500" style={{ width: `${rank.progressToNext}%` }} />
+            <div className="h-3 rounded-full bg-emerald-500" style={{ width: `${Math.min(100, currentScore)}%` }} />
           </div>
         </section>
       </div>
