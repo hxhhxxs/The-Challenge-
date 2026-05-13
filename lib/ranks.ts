@@ -21,17 +21,18 @@ const rankNames = [
   "Challenger",
 ];
 
+// Use light backgrounds + dark text everywhere so rank labels are readable on white cards and mobile screens.
 const rankColors: Record<string, string> = {
-  Iron: "bg-stone-600 text-white",
-  Bronze: "bg-orange-700 text-white",
-  Silver: "bg-slate-300 text-slate-950",
-  Gold: "bg-yellow-400 text-slate-950",
-  Platinum: "bg-cyan-300 text-slate-950",
-  Emerald: "bg-emerald-500 text-white",
-  Diamond: "bg-blue-500 text-white",
-  Master: "bg-purple-600 text-white",
-  Grandmaster: "bg-red-600 text-white",
-  Challenger: "bg-sky-500 text-white",
+  Iron: "bg-stone-200 text-stone-950 border border-stone-400",
+  Bronze: "bg-orange-200 text-orange-950 border border-orange-400",
+  Silver: "bg-slate-200 text-slate-950 border border-slate-400",
+  Gold: "bg-yellow-200 text-yellow-950 border border-yellow-400",
+  Platinum: "bg-cyan-200 text-cyan-950 border border-cyan-400",
+  Emerald: "bg-emerald-200 text-emerald-950 border border-emerald-400",
+  Diamond: "bg-blue-200 text-blue-950 border border-blue-400",
+  Master: "bg-purple-200 text-purple-950 border border-purple-400",
+  Grandmaster: "bg-red-200 text-red-950 border border-red-400",
+  Challenger: "bg-sky-200 text-sky-950 border border-sky-400",
 };
 
 export function getRankFromScore(rawScore: number): ChallengeRank {
