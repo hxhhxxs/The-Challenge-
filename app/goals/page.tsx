@@ -18,21 +18,26 @@ type CustomGoal = {
   active: boolean;
 };
 
+type CustomDailyTaskFrequency = "daily" | "weekly" | "custom";
+
 type CustomDailyTask = {
   id: string;
   name: string;
   category: string;
-  frequency: "daily" | "weekly" | "custom";
+  frequency: CustomDailyTaskFrequency;
   points: number;
   active: boolean;
 };
+
+type GoalForm = Omit<CustomGoal, "id" | "active">;
+type TaskForm = Omit<CustomDailyTask, "id" | "active">;
 
 function makeId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-const emptyGoal = { name: "", why: "", endGoal: "", dailyTask: "", daysPerWeek: 5, proofMethod: "log entry" };
-const emptyTask = { name: "", category: "Personal", frequency: "daily" as const, points: 1 };
+const emptyGoal: GoalForm = { name: "", why: "", endGoal: "", dailyTask: "", daysPerWeek: 5, proofMethod: "log entry" };
+const emptyTask: TaskForm = { name: "", category: "Personal", frequency: "daily", points: 1 };
 
 export default function GoalsPage() {
   const router = useRouter();
@@ -40,8 +45,8 @@ export default function GoalsPage() {
   const [draft, setDraft] = useState<Record<string, any> | null>(null);
   const [goals, setGoals] = useState<CustomGoal[]>([]);
   const [tasks, setTasks] = useState<CustomDailyTask[]>([]);
-  const [goalForm, setGoalForm] = useState(emptyGoal);
-  const [taskForm, setTaskForm] = useState(emptyTask);
+  const [goalForm, setGoalForm] = useState<GoalForm>(emptyGoal);
+  const [taskForm, setTaskForm] = useState<TaskForm>(emptyTask);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -94,7 +99,7 @@ export default function GoalsPage() {
       setError("Daily task needs a little more detail.");
       return;
     }
-    const nextGoals = [
+    const nextGoals: CustomGoal[] = [
       ...goals,
       {
         id: makeId(),
@@ -116,7 +121,7 @@ export default function GoalsPage() {
       setError("Task name is required.");
       return;
     }
-    const nextTasks = [
+    const nextTasks: CustomDailyTask[] = [
       ...tasks,
       {
         id: makeId(),
@@ -189,7 +194,7 @@ export default function GoalsPage() {
               <input className={inputClass} placeholder="Task name, e.g. Read 10 pages" value={taskForm.name} onChange={(e) => setTaskForm({ ...taskForm, name: e.target.value })} />
               <div className="grid gap-3 md:grid-cols-3">
                 <label className="text-sm font-bold text-slate-700">Category<input className={inputClass} value={taskForm.category} onChange={(e) => setTaskForm({ ...taskForm, category: e.target.value })} /></label>
-                <label className="text-sm font-bold text-slate-700">Frequency<select className={inputClass} value={taskForm.frequency} onChange={(e) => setTaskForm({ ...taskForm, frequency: e.target.value as CustomDailyTask["frequency"] })}><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="custom">Custom</option></select></label>
+                <label className="text-sm font-bold text-slate-700">Frequency<select className={inputClass} value={taskForm.frequency} onChange={(e) => setTaskForm({ ...taskForm, frequency: e.target.value as CustomDailyTaskFrequency })}><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="custom">Custom</option></select></label>
                 <label className="text-sm font-bold text-slate-700">Points<input className={inputClass} type="number" min={1} max={10} value={taskForm.points} onChange={(e) => setTaskForm({ ...taskForm, points: Number(e.target.value) })} /></label>
               </div>
               <button onClick={addTask} className="rounded-full bg-emerald-600 px-5 py-3 font-black text-white">Add daily task</button>
