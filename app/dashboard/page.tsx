@@ -102,6 +102,11 @@ export default function DashboardPage() {
             </div>
             <span className="rounded-full bg-emerald-400 px-4 py-2 text-xs font-black text-slate-950">Open library</span>
           </div>
+          {dailyLearning.arabicText && (
+            <p dir="rtl" className="mt-5 text-right text-3xl font-black leading-loose text-white">
+              {dailyLearning.arabicText}
+            </p>
+          )}
           <p className="mt-5 text-lg font-semibold leading-8 text-emerald-50">{dailyLearning.shortText}</p>
           <p className="mt-2 text-xs font-black text-emerald-200">{dailyLearning.reference}</p>
         </Link>
