@@ -1,4 +1,4 @@
-export const inputClass = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600";
+export const inputClass = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600 placeholder:text-slate-400";
 export const cardClass = "rounded-[2rem] bg-white/90 p-6 shadow-xl shadow-emerald-950/5";
 export const pageBg = "min-h-screen bg-[radial-gradient(circle_at_top_left,#dcfce7,transparent_32%),#fff8ed] px-4 py-8 text-slate-900";
 
@@ -26,14 +26,27 @@ export type StoredProfile = {
   personalGoals?: Array<{ name: string; endGoal: string; dailyTask: string; frequency: string; tracking?: string }>;
 };
 
-export function daysBetween(start?: string, end?: string) {
-  if (!start || !end) return 0;
-  return Math.max(1, Math.ceil((new Date(end).getTime() - new Date(start).getTime()) / 86400000) + 1);
+function localDateOnly(value?: string | Date) {
+  const date = value instanceof Date ? value : value ? new Date(`${String(value).slice(0, 10)}T00:00:00`) : new Date();
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-export function dayOfChallenge(start?: string) {
+export function daysBetween(start?: string, end?: string) {
+  if (!start || !end) return 0;
+  const startDay = localDateOnly(start).getTime();
+  const endDay = localDateOnly(end).getTime();
+  return Math.max(1, Math.floor((endDay - startDay) / 86400000) + 1);
+}
+
+export function dayOfChallenge(start?: string, today: Date = new Date()) {
   if (!start) return 1;
-  return Math.max(1, Math.ceil((Date.now() - new Date(start).getTime()) / 86400000) + 1);
+  const startDay = localDateOnly(start).getTime();
+  const todayDay = localDateOnly(today).getTime();
+  return Math.max(1, Math.floor((todayDay - startDay) / 86400000) + 1);
+}
+
+export function daysSinceStart(start?: string, today: Date = new Date()) {
+  return dayOfChallenge(start, today) - 1;
 }
 
 export function formatNum(value?: string | number) {
