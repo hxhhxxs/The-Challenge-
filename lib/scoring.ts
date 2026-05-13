@@ -52,12 +52,19 @@ export type DailyPointBreakdown = {
   warnings: string[];
 };
 
+export type AggregateCheckInScoresResult = {
+  total: number;
+  pillars: {
+    quwwah: number;
+    imaan: number;
+    sabr: number;
+    niyyah: number;
+    adab: number;
+  };
+};
+
 export function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
-}
-
-export function roundOne(value: number) {
-  return Math.round(value * 10) / 10;
 }
 
 export function roundThree(value: number) {
@@ -76,13 +83,9 @@ export function caloriesRangeScore(actual: number | undefined, target: number, g
     warnings.push("Eating too little hurts you and your score.");
     return 0;
   }
-
   const differenceRatio = Math.abs(actual - target) / target;
   if (differenceRatio <= 0.1) return 1;
-  if (differenceRatio <= 0.25) {
-    const progress = (differenceRatio - 0.1) / 0.15;
-    return 1 - progress * 0.5;
-  }
+  if (differenceRatio <= 0.25) return 1 - ((differenceRatio - 0.1) / 0.15) * 0.5;
   return 0;
 }
 
@@ -102,6 +105,22 @@ export function lessIsBetterScore(actual = 0, limit = 1) {
 export function goalResultScore(result: GoalResult) {
   if (result === "done") return 1;
   if (result === "partial") return 0.5;
+  return 0;
+}
+
+export function computeWeightProgressScore(startingWeight?: number, goalWeight?: number, currentWeight?: number) {
+  if (!startingWeight || !goalWeight || !currentWeight) return 0;
+  if (startingWeight === goalWeight) return 1;
+  const totalNeeded = Math.abs(startingWeight - goalWeight);
+  const moved = startingWeight > goalWeight ? startingWeight - currentWeight : currentWeight - startingWeight;
+  return clamp(moved / totalNeeded, 0, 1);
+}
+
+export function computeWakeScore(targetMinutes?: number, actualMinutes?: number) {
+  if (targetMinutes === undefined || actualMinutes === undefined) return 0;
+  const diff = Math.abs(actualMinutes - targetMinutes);
+  if (diff <= 30) return 1;
+  if (diff <= 90) return 0.5;
   return 0;
 }
 
@@ -129,10 +148,9 @@ export function computeDailyPoints(challenge: ChallengeScoringInput, log: DailyL
     moreIsBetterScore(log.quranReviewed, challenge.reviewGoal) * 0.3 +
     clamp(salahBase + salahBonus, 0, 1) * 0.3;
 
-  const wakeScore = computeWakeScore(challenge.wakeTargetMinutes, log.wakeActualMinutes);
   const disciplineRaw =
     sleepRangeScore(log.sleepHours) * 0.25 +
-    wakeScore * 0.15 +
+    computeWakeScore(challenge.wakeTargetMinutes, log.wakeActualMinutes) * 0.15 +
     lessIsBetterScore(log.screenTimeHours, challenge.screenTimeLimit) * 0.2 +
     lessIsBetterScore(log.moneySpent, challenge.moneyDailyPaceLimit) * 0.2 +
     clamp(challenge.monthlyLimitScoreAverage, 0, 1) * 0.2;
@@ -159,22 +177,6 @@ export function computeDailyPoints(challenge: ChallengeScoringInput, log: DailyL
     total: roundThree(body + quran + discipline + personal + character),
     warnings,
   };
-}
-
-export function computeWeightProgressScore(startingWeight?: number, goalWeight?: number, currentWeight?: number) {
-  if (!startingWeight || !goalWeight || !currentWeight) return 0;
-  if (startingWeight === goalWeight) return 1;
-  const totalNeeded = Math.abs(startingWeight - goalWeight);
-  const moved = startingWeight > goalWeight ? startingWeight - currentWeight : currentWeight - startingWeight;
-  return clamp(moved / totalNeeded, 0, 1);
-}
-
-export function computeWakeScore(targetMinutes?: number, actualMinutes?: number) {
-  if (targetMinutes === undefined || actualMinutes === undefined) return 0;
-  const diff = Math.abs(actualMinutes - targetMinutes);
-  if (diff <= 30) return 1;
-  if (diff <= 90) return 0.5;
-  return 0;
 }
 
 export function computePaceStatus(currentScore: number, dayNumber: number, totalDays: number) {
@@ -216,7 +218,12 @@ function timeToMinutes(value?: string) {
   return hours * 60 + minutes;
 }
 
-export function computePointsFromSavedCheckIn(draft: Record<string, any>, saved: Record<string, any>) {
+function normalizeGoalResult(value: any): GoalResult {
+  if (value === "done" || value === "partial" || value === "missed") return value;
+  return "missed";
+}
+
+export function computePointsFromSavedCheckIn(draft: Record<string, any>, saved: Record<string, any>): DailyPointBreakdown {
   const entries = saved.entries || {};
   const challenge: ChallengeScoringInput = {
     totalDays: daysBetween(draft.startDate, draft.endDate),
@@ -253,8 +260,8 @@ export function computePointsFromSavedCheckIn(draft: Record<string, any>, saved:
     wakeActualMinutes: timeToMinutes(saved.sleep?.wake),
     screenTimeHours: sumEntries(entries.screen),
     moneySpent: sumEntries(entries.money),
-    personalGoal1: saved.goals?.goal1 || "missed",
-    personalGoal2: saved.goals?.goal2 || "missed",
+    personalGoal1: normalizeGoalResult(saved.goals?.goal1),
+    personalGoal2: normalizeGoalResult(saved.goals?.goal2),
     randomTasksCompleted: 0,
     joyTaskDone: false,
     reflectionSubmitted: Boolean(reflection.mood || reflection.notes || reflection.slipped || reflection.wentWell),
@@ -264,10 +271,10 @@ export function computePointsFromSavedCheckIn(draft: Record<string, any>, saved:
   return computeDailyPoints(challenge, log);
 }
 
-export function aggregateCheckInScores(draft: Record<string, any>) {
+export function aggregateCheckInScores(draft: Record<string, any>): AggregateCheckInScoresResult {
   const checkins = draft.checkins || {};
-  return Object.values(checkins).reduce(
-    (acc: any, checkin: any) => {
+  return Object.values(checkins).reduce<AggregateCheckInScoresResult>(
+    (acc, checkin: any) => {
       const points = checkin.computedPoints || computePointsFromSavedCheckIn(draft, checkin);
       acc.total += points.total || 0;
       acc.pillars.quwwah += points.body || 0;
