@@ -5,98 +5,130 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ensureUserRecord } from "@/lib/supabase/ensure-user-record";
-import { cardClass, challengeDisplayLabel, dayOfChallengeFromProfile, isChallengeStarted, pageBg, totalChallengeDaysFromProfile } from "@/lib/challenge-ui";
+import { cardClass, pageBg } from "@/lib/challenge-ui";
+import { formatStartDate, getProfileChallengeStatus } from "@/lib/challenge";
 import { getRankFromScore } from "@/lib/ranks";
 import { computePillarStats } from "@/lib/pillars";
 import { getDailyLearningItem } from "@/lib/content-library";
-
-const FALLBACK_ARABIC = "فَإِنَّ مَعَ الْعُسْرِ يُسْرًا";
-const FALLBACK_ENGLISH = "Indeed, with hardship comes ease.";
-const FALLBACK_REF = "Qur'an 94:6";
-
-function greetingFor(name?: string) {
-  const first = String(name || "Challenger").trim().split(/\s+/)[0] || "Challenger";
-  const hour = new Date().getHours();
-  if (hour >= 5 && hour < 12) return `Sabah al-khayr, ${first}`;
-  if (hour >= 12 && hour < 17) return `As-salamu alaykum, ${first}`;
-  if (hour >= 17 && hour < 21) return `Masa' al-khayr, ${first}`;
-  return `As-salamu alaykum, ${first}`;
-}
-
-function hijriLabel(date: Date) { try { return new Intl.DateTimeFormat("en-US-u-ca-islamic", { day: "numeric", month: "long", year: "numeric" }).format(date); } catch { return "Hijri date"; } }
-
-function RankEmblem({ score }: { score: number }) {
-  const rank = getRankFromScore(score);
-  const palette: Record<string, string> = { Iron: "from-stone-500 to-stone-200", Bronze: "from-orange-700 to-orange-300", Silver: "from-slate-500 to-slate-200", Gold: "from-yellow-600 to-yellow-200", Platinum: "from-cyan-600 to-cyan-200", Emerald: "from-emerald-700 to-emerald-200", Diamond: "from-blue-700 to-indigo-200", Master: "from-purple-700 to-fuchsia-200", Grandmaster: "from-red-700 to-orange-200", Challenger: "from-sky-600 via-amber-200 to-white" };
-  return <span className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${palette[rank.name] || palette.Iron} shadow-inner`}><span className="h-6 w-6 rounded-full border-2 border-white/80 bg-white/20" /></span>;
-}
+import { DashboardHeader, HomeCard, LearningCard, LineIcon, RankEmblem, formatDate, hijriLabel } from "./dashboard-components";
 
 export default function DashboardPage() {
   const router = useRouter();
   const [draft, setDraft] = useState<Record<string, any> | null>(null);
   const [userScore, setUserScore] = useState<number | null>(null);
   const [userPillars, setUserPillars] = useState<Record<string, number> | null>(null);
+  const [userId, setUserId] = useState("");
 
   useEffect(() => {
     async function load() {
       const supabase = createSupabaseBrowserClient();
       const { data } = await supabase.auth.getUser();
-      if (!data.user) { router.push("/login"); return; }
+      if (!data.user) {
+        router.push("/login");
+        return;
+      }
       const record = await ensureUserRecord(data.user);
-      if (!record.onboarding_complete) { router.push("/onboarding"); return; }
-      setDraft((record.onboarding_draft || {}) as Record<string, any>);
-      setUserScore(Number((record as any).current_score ?? (record.onboarding_draft as any)?.current_score ?? 0));
-      setUserPillars(((record as any).pillar_scores || (record.onboarding_draft as any)?.pillar_scores || {}) as Record<string, number>);
+      if (!record.onboarding_complete) {
+        router.push("/onboarding");
+        return;
+      }
+      const loadedDraft = (record.onboarding_draft || {}) as Record<string, any>;
+      setUserId(data.user.id);
+      setDraft(loadedDraft);
+      setUserScore(Number((record as any).current_score ?? loadedDraft.current_score ?? 0));
+      setUserPillars(((record as any).pillar_scores || loadedDraft.pillar_scores || {}) as Record<string, number>);
     }
     load();
   }, [router]);
 
-  if (!draft) return <main className={pageBg}><section className={`${cardClass} mx-auto max-w-xl`}>Loading dashboard…</section></main>;
+  async function startNow() {
+    if (!draft || !userId) return;
+    const supabase = createSupabaseBrowserClient();
+    const today = new Date();
+    const key = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    const nextDraft = {
+      ...draft,
+      startDate: key,
+      challenge_started_at: key,
+      challenge_started_local_date: key,
+      challenge_status: "active",
+    };
+    await supabase.from("users").update({ onboarding_draft: nextDraft }).eq("id", userId);
+    setDraft(nextDraft);
+  }
 
+  if (!draft) {
+    return <main className={pageBg}><section className={`${cardClass} mx-auto max-w-xl`}>Loading dashboard…</section></main>;
+  }
+
+  const today = new Date();
+  const status = getProfileChallengeStatus(draft, today);
   const stats = computePillarStats(userPillars || draft.pillar_scores || {});
   const rank = getRankFromScore(stats.overallScore);
   const currentScore = Number(userScore ?? draft.current_score ?? stats.totalScore ?? 0);
   const scoreLabel = currentScore.toFixed(1);
-  const today = new Date();
-  const started = isChallengeStarted(draft.challenge_started_local_date || draft.challenge_started_at || draft.startDate, today);
-  const challengeLabel = challengeDisplayLabel(draft, today);
-  const currentDay = dayOfChallengeFromProfile(draft, today);
-  const totalDays = totalChallengeDaysFromProfile(draft) || 1;
-  const dateLabel = today.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
   const dailyLearning = getDailyLearningItem(today);
   const isFriday = today.getDay() === 5;
-  const arabicText = dailyLearning.arabicText || FALLBACK_ARABIC;
-  const englishText = dailyLearning.shortText || FALLBACK_ENGLISH;
-  const referenceText = dailyLearning.reference || FALLBACK_REF;
   const customGoalsCount = (draft.custom_personal_goals || []).length;
   const customTasksCount = (draft.custom_daily_tasks || []).length;
+
+  if (status.status === "pre_challenge") {
+    return (
+      <main className={pageBg}>
+        <div className="mx-auto max-w-4xl space-y-6">
+          <section className="rounded-[2rem] bg-slate-950 p-8 text-center text-white">
+            <p className="text-xs font-black text-emerald-300">Dashboard live build v6 • scheduled challenge</p>
+            <h1 className="mt-3 text-4xl font-black">Your challenge starts in</h1>
+            <p className="mt-4 text-7xl font-black text-emerald-300">{status.daysUntilStart}</p>
+            <p className="mt-2 text-2xl font-black">day{status.daysUntilStart === 1 ? "" : "s"}</p>
+            <p className="mt-4 text-lg font-bold text-slate-300">{formatStartDate(draft.startDate)} • {hijriLabel(new Date(draft.startDate))}</p>
+            <div className="mt-6 flex flex-wrap justify-center gap-3">
+              <button onClick={startNow} className="rounded-full bg-emerald-400 px-5 py-3 font-black text-slate-950">Start now instead</button>
+              <Link href="/onboarding" className="rounded-full bg-white/10 px-5 py-3 font-black text-white">Edit my start date</Link>
+            </div>
+          </section>
+
+          <section className={cardClass}>
+            <h2 className="text-2xl font-black">Use these days to prepare</h2>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              {["Tell a family member you’re starting", "Stock up on water + healthy food", "Plan your Fajr time", "Re-read your why", "Add extra personal goals", "Set custom daily tasks"].map((item) => <div key={item} className="rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-700">{item}</div>)}
+            </div>
+          </section>
+
+          <section className="grid gap-4 md:grid-cols-2">
+            <HomeCard href="/goals" icon={<LineIcon kind="plus" />} label="My Goals & Tasks" title="Prepare your mission" text="Add extra personal goals and custom daily tasks before Day 1." badge={`${customGoalsCount} goals • ${customTasksCount} tasks`} />
+            <HomeCard href="/learning" icon={<LineIcon kind="book" />} label="Learning Library" title="Start with the heart" text="Read the verse, hadith, and story library while you wait." badge="Faith" />
+          </section>
+        </div>
+      </main>
+    );
+  }
+
+  if (status.status === "completed") {
+    return (
+      <main className={pageBg}>
+        <section className={`${cardClass} mx-auto max-w-3xl text-center`}>
+          <p className="text-sm font-black text-emerald-700">Challenge complete</p>
+          <h1 className="mt-2 text-4xl font-black">You finished {status.totalDays} days.</h1>
+          <p className="mt-3 text-slate-600">Your final score is {scoreLabel}/100. Review your progress or create a share card.</p>
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <Link href="/progress" className="rounded-full bg-emerald-600 px-5 py-3 font-black text-white">View Progress</Link>
+            <Link href="/share-card" className="rounded-full bg-slate-950 px-5 py-3 font-black text-white">Create Share Card</Link>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className={pageBg}>
       <div className="mx-auto max-w-7xl space-y-6">
-        <header className="rounded-[2rem] bg-slate-950 p-6 text-white">
-          <div className="flex items-center justify-between gap-4">
-            <button onClick={() => router.push("/settings")} className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-400 text-lg font-black text-slate-950">{String(draft.name || "C").slice(0, 1)}</button>
-            <div className="text-center">
-              <p className="text-xs font-black text-emerald-300">Dashboard live build v5</p>
-              <h1 className="text-2xl font-black">{greetingFor(draft.name)}</h1>
-              <p className="text-sm font-bold text-slate-300">{challengeLabel} • {dateLabel} • {hijriLabel(today)}</p>
-              {isFriday && <p className="mt-1 text-xs font-black text-emerald-300">Jumu'ah Mubarak</p>}
-            </div>
-            <Link href="/profile" className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-sm font-black text-emerald-200">{String(draft.name || "C").slice(0, 1)}</Link>
-          </div>
-        </header>
-
-        {!started && <section className="rounded-[2rem] bg-amber-50 p-5 text-amber-950"><p className="font-black">Your challenge is scheduled, not started yet.</p><p className="mt-1 text-sm font-semibold">Daily check-ins unlock on your selected start date. You can still edit goals, view learning, and prepare your plan.</p></section>}
-
-        <Link href="/learning" className="block rounded-[2rem] bg-emerald-950 p-6 text-white shadow-xl transition hover:-translate-y-1 hover:shadow-2xl">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between"><div><p className="text-sm font-black text-emerald-300">Today's Qur'an / Hadith</p><h2 className="mt-1 text-3xl font-black">{dailyLearning.title || "With hardship comes ease"}</h2></div><span className="rounded-full bg-emerald-400 px-4 py-2 text-xs font-black text-slate-950">Open library</span></div>
-          <div className="mt-5 rounded-[1.5rem] border border-emerald-300/30 bg-white/10 p-5"><p className="mb-2 text-xs font-black uppercase tracking-wide text-emerald-200">Arabic</p><p dir="rtl" lang="ar" className="text-right text-4xl font-black leading-loose text-white">{arabicText}</p></div>
-          <p className="mt-5 text-lg font-semibold leading-8 text-emerald-50">{englishText}</p><p className="mt-2 text-xs font-black text-emerald-200">{referenceText}</p>
-        </Link>
+        <DashboardHeader draft={draft} router={router} marker="Dashboard live build v6" subtitle={`Day ${status.dayNumber} of ${status.totalDays} • ${formatDate(today)} • ${hijriLabel(today)}`} />
+        {isFriday && <section className="rounded-[2rem] bg-emerald-100 p-4 text-sm font-black text-emerald-950">Jumu'ah Mubarak</section>}
+        <LearningCard item={dailyLearning} />
 
         <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <HomeCard href={started ? "/check-in" : "#"} icon={<LineIcon kind="check" />} label="Tracking Today" title={started ? "Log today’s mission" : "Check-in locked"} text={started ? "Open the full tracking page. Every save updates today’s points." : "This unlocks on your selected start date."} badge={started ? `${scoreLabel}/100` : "Scheduled"} disabled={!started} />
+          <HomeCard href="/check-in" icon={<LineIcon kind="check" />} label="Tracking Today" title="Log today’s mission" text="Open the full tracking page. Every save updates today’s points." badge={`${scoreLabel}/100`} />
           <HomeCard href="/goals" icon={<LineIcon kind="plus" />} label="My Goals & Tasks" title="Add your own" text="Add extra personal goals and custom daily tasks to your mission." badge={`${customGoalsCount} goals • ${customTasksCount} tasks`} />
           <HomeCard href="/progress" icon={<LineIcon kind="chart" />} label="Progress" title="Score breakdown" text="See your score, pace, 5 Pillars, and recent saved check-ins." badge={`${scoreLabel}/100`} />
           <HomeCard href="/leaderboard" icon={<LineIcon kind="trophy" />} label="Leaderboard" title="See the board" text="View your leaderboard row and the real-user ranking system." badge={stats.overallRank} />
@@ -106,12 +138,18 @@ export default function DashboardPage() {
           <HomeCard href="/tools" icon={<LineIcon kind="tools" />} label="Tools" title="Challenge tools" text="Open Ramadan Mode, partner, share cards, food photo logging, why reset, and more." badge="Hub" />
         </section>
 
-        <section className={cardClass}><div className="flex flex-col justify-between gap-4 md:flex-row md:items-center"><div><p className="text-sm font-black text-emerald-700">Current score</p><h2 className="text-3xl font-black">{scoreLabel} / 100</h2><p className="mt-1 text-sm font-semibold text-slate-600">{started ? `Challenge day ${currentDay} of ${totalDays}` : "Challenge has not started yet"} • Current rank: {stats.overallRank} • Title: {stats.title}</p></div><Link href="/progress" className="rounded-full bg-emerald-600 px-5 py-3 text-sm font-black text-white">Open Progress</Link></div><div className="mt-5 h-3 rounded-full bg-slate-100"><div className="h-3 rounded-full bg-emerald-500" style={{ width: `${Math.min(100, currentScore)}%` }} /></div></section>
+        <section className={cardClass}>
+          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+            <div>
+              <p className="text-sm font-black text-emerald-700">Current score</p>
+              <h2 className="text-3xl font-black">{scoreLabel} / 100</h2>
+              <p className="mt-1 text-sm font-semibold text-slate-600">Challenge day {status.dayNumber} of {status.totalDays} • Current rank: {stats.overallRank} • Title: {stats.title}</p>
+            </div>
+            <Link href="/progress" className="rounded-full bg-emerald-600 px-5 py-3 text-sm font-black text-white">Open Progress</Link>
+          </div>
+          <div className="mt-5 h-3 rounded-full bg-slate-100"><div className="h-3 rounded-full bg-emerald-500" style={{ width: `${Math.min(100, currentScore)}%` }} /></div>
+        </section>
       </div>
     </main>
   );
 }
-
-function HomeCard({ href, icon, label, title, text, badge, disabled = false }: { href: string; icon: React.ReactNode; label: string; title: string; text: string; badge: string; disabled?: boolean }) { return <Link href={href} onClick={(e) => { if (disabled) e.preventDefault(); }} className={`${cardClass} group transition ${disabled ? "cursor-not-allowed opacity-60" : "hover:-translate-y-1 hover:shadow-2xl"}`}><div className="flex items-start justify-between gap-4"><div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-900">{icon}</div><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600 group-hover:bg-emerald-100 group-hover:text-emerald-800">{badge}</span></div><p className="mt-5 text-sm font-black text-emerald-700">{label}</p><h2 className="mt-1 text-2xl font-black text-slate-950">{title}</h2><p className="mt-2 text-sm leading-6 text-slate-600">{text}</p><p className="mt-5 text-sm font-black text-emerald-700">{disabled ? "Locked" : "Open →"}</p></Link>; }
-
-function LineIcon({ kind }: { kind: string }) { const paths: Record<string, string> = { check: "M5 13l4 4L19 7", plus: "M12 5v14M5 12h14", chart: "M4 19V5M8 17v-6M13 17V8M18 17v-9M4 19h17", trophy: "M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4ZM17 6h3a3 3 0 0 1-3 3M7 6H4a3 3 0 0 0 3 3", tools: "M14 7l-7 7M5 19l4-1 9-9-3-3-9 9-1 4Z", profile: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0", book: "M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 0 4 19.5v-15Z" }; return <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d={paths[kind] || paths.check} /></svg>; }
