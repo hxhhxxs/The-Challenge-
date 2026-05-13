@@ -74,6 +74,7 @@ export default function SettingsPage() {
             <h2 className="mt-4 text-2xl font-black">{profile.name || "Challenger"}</h2>
             <p className="mt-1 text-sm font-bold text-slate-500">@{profile.username || "username"}</p>
             <p className="mt-1 text-sm text-slate-500">{profile.email}</p>
+            <Link href="/profile" className="mt-5 inline-block rounded-full bg-emerald-600 px-5 py-3 text-sm font-black text-white">Open Character Sheet</Link>
           </div>
 
           <div className={cardClass}>
@@ -94,6 +95,7 @@ export default function SettingsPage() {
         <section className={cardClass}>
           <h2 className="text-2xl font-black">Challenge tools</h2>
           <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <Tool href="/profile" title="Character sheet" />
             <Tool href="/tools" title="All tools" />
             <Tool href="/intentions" title="Implementation intentions" />
             <Tool href="/ramadan" title="Ramadan Mode" />
