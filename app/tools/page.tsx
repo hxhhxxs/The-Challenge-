@@ -2,6 +2,7 @@ import Link from "next/link";
 import { cardClass, pageBg } from "@/lib/challenge-ui";
 
 const tools = [
+  { title: "My Goals & Tasks", href: "/goals", icon: "target", description: "Add extra personal goals and create your own custom daily tasks.", tag: "Personal" },
   { title: "Progress", href: "/progress", icon: "chart", description: "See your current score, pace, 5 Pillars breakdown, and recent saved check-ins.", tag: "Score" },
   { title: "Learning Library", href: "/learning", icon: "book", description: "Browse verses, hadiths, Sahaba stories, Prophet ﷺ stories, and challenge content.", tag: "Faith" },
   { title: "Implementation Intentions", href: "/intentions", icon: "target", description: "Write exactly what you will do, when you will do it, and where you will do it.", tag: "Planning" },
@@ -22,7 +23,7 @@ export default function ToolsPage() {
         <section className="rounded-[2rem] bg-slate-950 p-6 text-white">
           <p className="text-sm font-bold text-emerald-300">Challenge Tools</p>
           <h1 className="mt-1 text-4xl font-black">Everything that makes the challenge stronger.</h1>
-          <p className="mt-2 max-w-2xl text-slate-300">Open progress, learning, special modes, accountability tools, review pages, share cards, and food logging from one place.</p>
+          <p className="mt-2 max-w-2xl text-slate-300">Open custom goals, progress, learning, special modes, accountability tools, review pages, share cards, and food logging from one place.</p>
         </section>
 
         <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -43,13 +44,13 @@ export default function ToolsPage() {
 
         <section className="rounded-[2rem] bg-emerald-100 p-5 text-emerald-950">
           <p className="font-black">Presentation note</p>
-          <p className="mt-1 text-sm font-semibold">Progress, learning, and tracking are now connected in the app. The next backend layer can move check-ins into a dedicated daily_logs table.</p>
+          <p className="mt-1 text-sm font-semibold">Users can now add more personal goals and their own custom daily tasks from My Goals & Tasks.</p>
         </section>
 
         <div className="flex flex-wrap gap-3">
           <Link href="/dashboard" className="rounded-full bg-slate-950 px-5 py-3 font-black text-white">Back to dashboard</Link>
-          <Link href="/progress" className="rounded-full bg-emerald-600 px-5 py-3 font-black text-white">Progress</Link>
-          <Link href="/learning" className="rounded-full bg-emerald-100 px-5 py-3 font-black text-emerald-950">Learning Library</Link>
+          <Link href="/goals" className="rounded-full bg-emerald-600 px-5 py-3 font-black text-white">My Goals & Tasks</Link>
+          <Link href="/progress" className="rounded-full bg-emerald-100 px-5 py-3 font-black text-emerald-950">Progress</Link>
         </div>
       </div>
     </main>
