@@ -36,9 +36,7 @@ function localDateOnly(value?: string | Date) {
   if (value instanceof Date) return new Date(value.getFullYear(), value.getMonth(), value.getDate());
   const text = String(value).slice(0, 10);
   const parts = text.split("-").map(Number);
-  if (parts.length === 3 && parts.every(Number.isFinite)) {
-    return new Date(parts[0], parts[1] - 1, parts[2]);
-  }
+  if (parts.length === 3 && parts.every(Number.isFinite)) return new Date(parts[0], parts[1] - 1, parts[2]);
   const date = new Date(value);
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
@@ -52,7 +50,10 @@ export function localTodayKey(today: Date = new Date()) {
 }
 
 export function getStableChallengeStart(profile?: Record<string, any>) {
-  return profile?.challenge_started_local_date || profile?.challenge_started_at || profile?.startDate || "";
+  // IMPORTANT: startDate is the user's selected start date and is the source of truth.
+  // Older builds sometimes saved challenge_started_at as the day onboarding was completed,
+  // which broke future starts. Never let that override the selected startDate.
+  return profile?.startDate || profile?.challenge_started_local_date || profile?.challenge_started_at || "";
 }
 
 export function daysBetween(start?: string, end?: string) {
@@ -71,6 +72,10 @@ export function rawDayDiffFromStart(start?: string, today: Date = new Date()) {
 
 export function isChallengeStarted(start?: string, today: Date = new Date()) {
   return rawDayDiffFromStart(start, today) >= 0;
+}
+
+export function isChallengeStartedFromProfile(profile?: Record<string, any>, today: Date = new Date()) {
+  return isChallengeStarted(getStableChallengeStart(profile), today);
 }
 
 export function daysUntilChallengeStart(start?: string, today: Date = new Date()) {
@@ -101,7 +106,7 @@ export function dayOfChallengeFromProfile(profile?: Record<string, any>, today: 
 }
 
 export function totalChallengeDaysFromProfile(profile?: Record<string, any>) {
-  return daysBetween(getStableChallengeStart(profile) || profile?.startDate, profile?.endDate);
+  return daysBetween(getStableChallengeStart(profile), profile?.endDate);
 }
 
 export function daysSinceStart(start?: string, today: Date = new Date()) {
@@ -114,27 +119,6 @@ export function formatNum(value?: string | number) {
 }
 
 export function requiredProfileComplete(profile: StoredProfile) {
-  const values = [
-    profile.name,
-    profile.age,
-    profile.heightFeet,
-    profile.heightInches,
-    profile.currentWeightLbs,
-    profile.goalWeightLbs,
-    profile.startDate,
-    profile.endDate,
-    profile.wakeTime,
-    profile.calorieTarget,
-    profile.stepTarget,
-    profile.waterTarget,
-    profile.currentHifdh,
-    profile.goalHifdh,
-    profile.quranDailyTarget,
-    profile.quranReviewTarget,
-    profile.goal1,
-    profile.goal1Task,
-    profile.goal2,
-    profile.goal2Task,
-  ];
+  const values = [profile.name, profile.age, profile.heightFeet, profile.heightInches, profile.currentWeightLbs, profile.goalWeightLbs, profile.startDate, profile.endDate, profile.wakeTime, profile.calorieTarget, profile.stepTarget, profile.waterTarget, profile.currentHifdh, profile.goalHifdh, profile.quranDailyTarget, profile.quranReviewTarget, profile.goal1, profile.goal1Task, profile.goal2, profile.goal2Task];
   return values.every((value) => String(value || "").trim().length > 0);
 }
