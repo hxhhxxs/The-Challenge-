@@ -34,7 +34,7 @@ export default function LearningPage() {
   const visibleItems = useMemo(() => {
     return learningItems.filter((item) => {
       const matchesType = filter === "all" || item.type === filter;
-      const text = `${item.title} ${item.shortText} ${item.reference || ""} ${item.themes.join(" ")}`.toLowerCase();
+      const text = `${item.title} ${item.shortText} ${item.arabicText || ""} ${item.reference || ""} ${item.themes.join(" ")}`.toLowerCase();
       const matchesQuery = !query.trim() || text.includes(query.toLowerCase());
       return matchesType && matchesQuery;
     });
@@ -70,7 +70,7 @@ export default function LearningPage() {
               <p className="text-sm font-black text-emerald-700">Browse</p>
               <h2 className="text-3xl font-black">Content Library</h2>
             </div>
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search theme, title, reference..." className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none placeholder:text-slate-400 focus:border-emerald-600 lg:max-w-sm" />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search theme, title, reference, Arabic..." className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none placeholder:text-slate-400 focus:border-emerald-600 lg:max-w-sm" />
           </div>
           <div className="mt-5 flex flex-wrap gap-2">
             {filters.map((item) => (
@@ -86,8 +86,8 @@ export default function LearningPage() {
         </section>
 
         <section className="rounded-[2rem] bg-emerald-100 p-5 text-emerald-950">
-          <p className="font-black">Next backend step</p>
-          <p className="mt-1 text-sm font-semibold">Save favorites to Supabase, seed the full 6-month library, and connect one learning item to the dashboard every day.</p>
+          <p className="font-black">Arabic restored</p>
+          <p className="mt-1 text-sm font-semibold">Qur’an and hadith cards now show Arabic text above the English meaning.</p>
         </section>
 
         <div className="flex flex-wrap gap-3">
@@ -97,6 +97,11 @@ export default function LearningPage() {
       </div>
     </main>
   );
+}
+
+function ArabicBlock({ text, dark = false }: { text?: string; dark?: boolean }) {
+  if (!text) return null;
+  return <p dir="rtl" className={`mt-4 text-right text-2xl font-black leading-loose ${dark ? "text-white" : "text-slate-950"}`}>{text}</p>;
 }
 
 function FeatureCard({ title, item, saved, onSave, children }: { title: string; item: LearningItem; saved: boolean; onSave: () => void; children?: React.ReactNode }) {
@@ -109,6 +114,7 @@ function FeatureCard({ title, item, saved, onSave, children }: { title: string; 
         </div>
         <button onClick={onSave} className="rounded-full bg-white/10 px-3 py-2 text-xs font-black text-emerald-100">{saved ? "Saved" : "Save"}</button>
       </div>
+      <ArabicBlock text={item.arabicText} dark />
       <p className="mt-4 text-lg font-semibold leading-8 text-emerald-50">{item.shortText}</p>
       {item.fullText && <p className="mt-3 text-sm leading-6 text-emerald-100">{item.fullText}</p>}
       <div className="mt-4 flex flex-wrap gap-2">
@@ -130,6 +136,7 @@ function LearningCard({ item, saved, onSave }: { item: LearningItem; saved: bool
         </div>
         <button onClick={onSave} className={`rounded-full px-3 py-1 text-xs font-black ${saved ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"}`}>{saved ? "Saved" : "♡"}</button>
       </div>
+      <ArabicBlock text={item.arabicText} />
       <p className="mt-3 text-sm leading-6 text-slate-700">{item.shortText}</p>
       {item.fullText && <details className="mt-3"><summary className="cursor-pointer text-sm font-black text-emerald-700">Read more</summary><p className="mt-2 text-sm leading-6 text-slate-600">{item.fullText}</p></details>}
       <div className="mt-4 flex flex-wrap gap-2">
