@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { cardClass, dayOfChallenge, daysBetween, pageBg } from "@/lib/challenge-ui";
+import { cardClass, pageBg } from "@/lib/challenge-ui";
+import { getProfileChallengeStatus } from "@/lib/challenge";
 import { computePillarStats } from "@/lib/pillars";
 import { getRankFromScore } from "@/lib/ranks";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -18,14 +19,32 @@ function paceStatus(currentScore: number, day: number, totalDays: number) {
   return { label: "Danger", expected, color: "bg-red-100 text-red-900" };
 }
 
+function sumEntries(entries?: Array<{ amount?: number }>) {
+  return (entries || []).reduce((total, entry) => total + (Number(entry.amount) || 0), 0);
+}
+
+function totalsFromCheckin(checkin: any) {
+  const savedTotals = checkin.computedPoints?.totals || checkin.computed_points?.totals;
+  if (savedTotals) return savedTotals;
+  const entries = checkin.entries || {};
+  return {
+    calories: sumEntries(entries.calories),
+    water: sumEntries(entries.water),
+    steps: sumEntries(entries.steps),
+    exercise: sumEntries(entries.exercise),
+  };
+}
+
 function normalizeLog(row: any) {
   const computed = row.computed_points || row.computedPoints || {};
-  return [row.date, { ...row, computedPoints: computed }];
+  return [row.date, { ...row, computedPoints: computed, totals: totalsFromCheckin({ ...row, computedPoints: computed }) }];
 }
 
 export default function ProgressPage() {
   const router = useRouter();
   const [draft, setDraft] = useState<Record<string, any> | null>(null);
+  const [userScore, setUserScore] = useState<number | null>(null);
+  const [userPillars, setUserPillars] = useState<Record<string, number> | null>(null);
   const [dailyLogs, setDailyLogs] = useState<any[]>([]);
   const [sourceLabel, setSourceLabel] = useState("profile backup");
 
@@ -40,6 +59,8 @@ export default function ProgressPage() {
       const record = await ensureUserRecord(data.user);
       const loadedDraft = (record.onboarding_draft || {}) as Record<string, any>;
       setDraft(loadedDraft);
+      setUserScore(Number((record as any).current_score ?? loadedDraft.current_score ?? 0));
+      setUserPillars(((record as any).pillar_scores || loadedDraft.pillar_scores || {}) as Record<string, number>);
 
       const { data: rows, error } = await supabase
         .from("daily_logs")
@@ -49,9 +70,9 @@ export default function ProgressPage() {
 
       if (!error && rows && rows.length > 0) {
         setDailyLogs(rows.map(normalizeLog));
-        setSourceLabel("daily_logs");
+        setSourceLabel("daily logs");
       } else {
-        setDailyLogs(Object.entries(loadedDraft.checkins || {}).sort(([a], [b]) => a.localeCompare(b)) as any[]);
+        setDailyLogs(Object.entries(loadedDraft.checkins || {}).sort(([a], [b]) => a.localeCompare(b)).map(([date, checkin]: any) => [date, { ...checkin, totals: totalsFromCheckin(checkin) }]) as any[]);
         setSourceLabel("profile backup");
       }
     }
@@ -62,38 +83,35 @@ export default function ProgressPage() {
 
   if (!draft) return <main className={pageBg}><section className={`${cardClass} mx-auto max-w-xl`}>Loading progress…</section></main>;
 
-  const stats = computePillarStats(draft.pillar_scores || {});
-  const currentScore = Number(draft.current_score || stats.totalScore || 0);
+  const stats = computePillarStats(userPillars || draft.pillar_scores || {});
+  const currentScore = Number(userScore ?? draft.current_score ?? stats.totalScore ?? 0);
   const rank = getRankFromScore(stats.overallScore);
-  const currentDay = Math.min(daysBetween(draft.startDate, draft.endDate) || 1, dayOfChallenge(draft.startDate));
-  const totalDays = daysBetween(draft.startDate, draft.endDate) || 1;
-  const pace = paceStatus(currentScore, currentDay, totalDays);
+  const status = getProfileChallengeStatus(draft);
+  const currentDay = status.status === "pre_challenge" ? 0 : status.dayNumber;
+  const totalDays = status.totalDays;
+  const pace = paceStatus(currentScore, Math.max(1, currentDay), totalDays);
 
   return (
     <main className={pageBg}>
       <div className="mx-auto max-w-6xl space-y-6">
         <section className="rounded-[2rem] bg-slate-950 p-6 text-white">
-          <p className="text-sm font-bold text-emerald-300">Score / Progress</p>
+          <p className="text-sm font-bold text-emerald-300">Progress</p>
           <h1 className="mt-1 text-4xl font-black">{currentScore.toFixed(1)} / 100</h1>
-          <p className="mt-2 text-slate-300">Day {currentDay} of {totalDays} • Expected today: {pace.expected.toFixed(1)} / 100</p>
-          <span className={`mt-4 inline-block rounded-full px-4 py-2 text-sm font-black ${pace.color}`}>{pace.label}</span>
+          <p className="mt-2 text-slate-300">{status.status === "pre_challenge" ? "Challenge has not started yet" : `Day ${currentDay} of ${totalDays}`} • Expected today: {pace.expected.toFixed(1)} / 100</p>
+          <span className={`mt-4 inline-block rounded-full px-4 py-2 text-sm font-black ${pace.color}`}>{status.status === "pre_challenge" ? "Scheduled" : pace.label}</span>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-3">
+        <section className="grid gap-4 md:grid-cols-2">
           <div className={cardClass}>
-            <p className="text-sm font-bold text-slate-500">Current rank</p>
+            <p className="text-sm font-bold text-slate-500">Rank & title</p>
             <p className="mt-1 text-3xl font-black">{stats.overallRank}</p>
-            <p className="mt-1 text-sm font-bold text-emerald-700">Next: {rank.nextRank}</p>
+            <p className="mt-1 text-lg font-black text-emerald-700">{stats.title}</p>
+            <p className="mt-1 text-sm font-bold text-slate-500">Next: {rank.nextRank}</p>
           </div>
           <div className={cardClass}>
-            <p className="text-sm font-bold text-slate-500">Current title</p>
-            <p className="mt-1 text-2xl font-black">{stats.title}</p>
-            <p className="mt-1 text-sm font-bold text-emerald-700" dir="rtl">{stats.titleArabic}</p>
-          </div>
-          <div className={cardClass}>
-            <p className="text-sm font-bold text-slate-500">Check-ins saved</p>
+            <p className="text-sm font-bold text-slate-500">Saved activity</p>
             <p className="mt-1 text-3xl font-black">{checkins.length}</p>
-            <p className="mt-1 text-sm font-bold text-emerald-700">Source: {sourceLabel}</p>
+            <p className="mt-1 text-sm font-bold text-emerald-700">Recent days from {sourceLabel}</p>
           </div>
         </section>
 
@@ -128,20 +146,23 @@ export default function ProgressPage() {
         </section>
 
         <section className={cardClass}>
-          <h2 className="text-2xl font-black">Recent saved check-ins</h2>
+          <h2 className="text-2xl font-black">Recent saved activity</h2>
           {checkins.length === 0 ? (
             <p className="mt-2 text-sm text-slate-600">No check-ins yet. Log water, steps, Qur'an, salah, or reflection to see points move.</p>
           ) : (
             <div className="mt-4 space-y-3">
-              {checkins.slice(-7).reverse().map(([date, checkin]: any) => (
-                <div key={date} className="flex flex-col justify-between gap-2 rounded-2xl bg-slate-50 p-4 md:flex-row md:items-center">
-                  <div>
-                    <p className="font-black text-slate-950">{date}</p>
-                    <p className="text-sm text-slate-600">Calories: {checkin.computedPoints?.totals?.calories || 0} • Water: {checkin.computedPoints?.totals?.water || 0} • Steps: {checkin.computedPoints?.totals?.steps || 0}</p>
+              {checkins.slice(-7).reverse().map(([date, checkin]: any) => {
+                const totals = checkin.totals || totalsFromCheckin(checkin);
+                return (
+                  <div key={date} className="flex flex-col justify-between gap-2 rounded-2xl bg-slate-50 p-4 md:flex-row md:items-center">
+                    <div>
+                      <p className="font-black text-slate-950">{date}</p>
+                      <p className="text-sm text-slate-600">Calories: {totals.calories || 0} • Water: {totals.water || 0} • Steps: {totals.steps || 0}</p>
+                    </div>
+                    <span className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-black text-emerald-800">{Number(checkin.computedPoints?.total || 0).toFixed(1)} pts</span>
                   </div>
-                  <span className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-black text-emerald-800">{Number(checkin.computedPoints?.total || 0).toFixed(3)} pts</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>
