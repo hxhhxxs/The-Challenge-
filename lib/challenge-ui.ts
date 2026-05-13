@@ -10,6 +10,8 @@ export type StoredProfile = {
   currentWeightLbs?: string;
   goalWeightLbs?: string;
   startDate?: string;
+  challenge_started_at?: string;
+  challenge_started_local_date?: string;
   endDate?: string;
   wakeTime?: string;
   calorieTarget?: string;
@@ -27,8 +29,22 @@ export type StoredProfile = {
 };
 
 function localDateOnly(value?: string | Date) {
-  const date = value instanceof Date ? value : value ? new Date(`${String(value).slice(0, 10)}T00:00:00`) : new Date();
+  if (!value) {
+    const today = new Date();
+    return new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  }
+  if (value instanceof Date) return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+  const text = String(value).slice(0, 10);
+  const parts = text.split("-").map(Number);
+  if (parts.length === 3 && parts.every(Number.isFinite)) {
+    return new Date(parts[0], parts[1] - 1, parts[2]);
+  }
+  const date = new Date(value);
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+export function getStableChallengeStart(profile?: Record<string, any>) {
+  return profile?.challenge_started_local_date || profile?.challenge_started_at || profile?.startDate || "";
 }
 
 export function daysBetween(start?: string, end?: string) {
@@ -43,6 +59,14 @@ export function dayOfChallenge(start?: string, today: Date = new Date()) {
   const startDay = localDateOnly(start).getTime();
   const todayDay = localDateOnly(today).getTime();
   return Math.max(1, Math.floor((todayDay - startDay) / 86400000) + 1);
+}
+
+export function dayOfChallengeFromProfile(profile?: Record<string, any>, today: Date = new Date()) {
+  return dayOfChallenge(getStableChallengeStart(profile), today);
+}
+
+export function totalChallengeDaysFromProfile(profile?: Record<string, any>) {
+  return daysBetween(getStableChallengeStart(profile) || profile?.startDate, profile?.endDate);
 }
 
 export function daysSinceStart(start?: string, today: Date = new Date()) {
