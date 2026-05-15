@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ensureUserRecord } from "@/lib/supabase/ensure-user-record";
 import { cardClass, inputClass, pageBg } from "@/lib/challenge-ui";
+import { appThemeModes, getThemeMode, type AppThemeMode } from "@/lib/theme-modes";
+import { setChallengeThemeMode } from "@/components/ThemeModeProvider";
 
 type Profile = {
   id: string;
@@ -21,6 +23,7 @@ export default function SettingsPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [showLeaderboard, setShowLeaderboard] = useState(true);
+  const [themeMode, setThemeMode] = useState<AppThemeMode>("light");
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -33,9 +36,12 @@ export default function SettingsPage() {
       }
       const record = await ensureUserRecord(data.user);
       const draft = (record.onboarding_draft || {}) as Record<string, any>;
+      const savedTheme = getThemeMode(draft.themeMode || (typeof window !== "undefined" ? window.localStorage.getItem("challenge_theme_mode") : "light"));
       setProfile({ ...record, onboarding_draft: draft });
       setDisplayName(draft.displayName || record.username || record.name || "");
       setShowLeaderboard(draft.showLeaderboard !== false);
+      setThemeMode(savedTheme);
+      setChallengeThemeMode(savedTheme);
     }
     load();
   }, [router]);
@@ -43,10 +49,15 @@ export default function SettingsPage() {
   async function save() {
     if (!profile) return;
     const supabase = createSupabaseBrowserClient();
-    const nextDraft = { ...(profile.onboarding_draft || {}), displayName, showLeaderboard };
+    const nextDraft = { ...(profile.onboarding_draft || {}), displayName, showLeaderboard, themeMode };
     await supabase.from("users").update({ onboarding_draft: nextDraft }).eq("id", profile.id);
     setMessage("Settings saved.");
     setTimeout(() => setMessage(""), 2000);
+  }
+
+  function chooseTheme(mode: AppThemeMode) {
+    setThemeMode(mode);
+    setChallengeThemeMode(mode);
   }
 
   async function logout() {
@@ -63,7 +74,7 @@ export default function SettingsPage() {
         <section className="rounded-[2rem] bg-slate-950 p-6 text-white">
           <p className="text-sm font-bold text-emerald-300">Profile & Settings</p>
           <h1 className="mt-1 text-4xl font-black">{profile.name || "Your profile"}</h1>
-          <p className="mt-2 text-slate-300">Manage your profile, privacy, challenge tools, and account.</p>
+          <p className="mt-2 text-slate-300">Manage your profile, privacy, challenge tools, visual modes, and account.</p>
         </section>
 
         <section className="grid gap-4 md:grid-cols-[0.8fr_1.2fr]">
@@ -93,10 +104,37 @@ export default function SettingsPage() {
         </section>
 
         <section className={cardClass}>
+          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-sm font-black text-emerald-700">Appearance</p>
+              <h2 className="text-2xl font-black">Choose your mode</h2>
+              <p className="mt-1 text-sm text-slate-500">Pick a calm light/dark mode or an elemental visual style.</p>
+            </div>
+            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">Current: {appThemeModes.find((mode) => mode.id === themeMode)?.name}</span>
+          </div>
+          <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {appThemeModes.map((mode) => (
+              <button key={mode.id} onClick={() => chooseTheme(mode.id)} className={`overflow-hidden rounded-[1.5rem] border text-left transition hover:-translate-y-1 ${themeMode === mode.id ? "border-emerald-600 ring-4 ring-emerald-100" : "border-slate-200"}`}>
+                <div className={`h-24 bg-gradient-to-br ${mode.preview}`} />
+                <div className="bg-white/85 p-4 backdrop-blur">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-lg font-black text-slate-950">{mode.name}</h3>
+                    {mode.arabicName && <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-black text-slate-700">{mode.arabicName}</span>}
+                  </div>
+                  <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{mode.description}</p>
+                  <p className="mt-3 text-xs font-black text-emerald-700">{themeMode === mode.id ? "Selected" : "Tap to preview"}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className={cardClass}>
           <h2 className="text-2xl font-black">Challenge tools</h2>
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             <Tool href="/profile" title="Character sheet" />
             <Tool href="/tools" title="All tools" />
+            <Tool href="/edit-plan" title="Edit plan" />
             <Tool href="/intentions" title="Implementation intentions" />
             <Tool href="/ramadan" title="Ramadan Mode" />
             <Tool href="/partner" title="Accountability partner" />
