@@ -1,6 +1,6 @@
 export const inputClass = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600 placeholder:text-slate-400";
-export const cardClass = "rounded-[2rem] bg-white/90 p-6 shadow-xl shadow-emerald-950/5";
-export const pageBg = "min-h-screen bg-[radial-gradient(circle_at_top_left,#dcfce7,transparent_32%),#fff8ed] px-4 py-8 text-slate-900";
+export const cardClass = "theme-card rounded-[2rem] p-6 shadow-xl shadow-emerald-950/5";
+export const pageBg = "theme-page-bg min-h-screen px-4 py-8 text-slate-900";
 
 export type StoredProfile = {
   name?: string;
