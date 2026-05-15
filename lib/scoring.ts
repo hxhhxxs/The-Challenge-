@@ -71,22 +71,24 @@ export function roundThree(value: number) {
   return Math.round(value * 1000) / 1000;
 }
 
-export function moreIsBetterScore(actual = 0, target = 1, bonusCap = 1.2) {
-  if (target <= 0) return 0;
+export function moreIsBetterScore(actual = 0, target = 1, bonusCap = 1.15) {
+  if (target <= 0) return actual > 0 ? 1 : 0;
   return clamp(actual / target, 0, bonusCap) / bonusCap;
 }
 
 export function caloriesRangeScore(actual: number | undefined, target: number, gender: Gender, warnings: string[]) {
   if (!actual || actual <= 0 || target <= 0) return 0;
   const hardFloor = gender === "female" ? 1200 : 1500;
-  if (actual < hardFloor) {
-    warnings.push("Eating too little hurts you and your score.");
-    return 0;
-  }
+  if (actual < hardFloor) warnings.push("Calories are logged, but the full calorie target is not reached yet.");
+
+  // Award partial progress while the day is still being built. The old version returned
+  // zero under 1500/1200 kcal, so breakfast could save correctly but still show 0 pts.
+  if (actual < target * 0.75) return clamp(actual / Math.max(1, target * 0.75), 0, 0.9);
+
   const differenceRatio = Math.abs(actual - target) / target;
   if (differenceRatio <= 0.1) return 1;
-  if (differenceRatio <= 0.25) return 1 - ((differenceRatio - 0.1) / 0.15) * 0.5;
-  return 0;
+  if (differenceRatio <= 0.25) return 1 - ((differenceRatio - 0.1) / 0.15) * 0.35;
+  return 0.35;
 }
 
 export function sleepRangeScore(hours?: number) {
@@ -97,8 +99,9 @@ export function sleepRangeScore(hours?: number) {
 }
 
 export function lessIsBetterScore(actual = 0, limit = 1) {
+  if (!actual || actual <= 0) return 0;
   if (limit <= 0) return actual <= 0 ? 1 : 0;
-  if (actual <= limit) return clamp(1 - 0.5 * (actual / limit), 0, 1);
+  if (actual <= limit) return clamp(1 - 0.5 * (actual / limit), 0.25, 1);
   return clamp(1 - (actual - limit) / limit, 0, 1);
 }
 
@@ -124,49 +127,65 @@ export function computeWakeScore(targetMinutes?: number, actualMinutes?: number)
   return 0;
 }
 
+function visibleMinimum(value: number, wasLogged: boolean, minimum = 0.02) {
+  if (!wasLogged) return value;
+  if (value <= 0) return minimum;
+  return Math.max(value, minimum);
+}
+
 export function computeDailyPoints(challenge: ChallengeScoringInput, log: DailyLogScoringInput): DailyPointBreakdown {
   const warnings: string[] = [];
-  const dailyMax = 100 / Math.max(30, challenge.totalDays);
-  const bodyMax = dailyMax * 0.25;
-  const quranMax = dailyMax * 0.25;
-  const disciplineMax = dailyMax * 0.2;
+  const dailyMax = 100 / Math.max(1, challenge.totalDays);
+  const bodyMax = dailyMax * 0.28;
+  const quranMax = dailyMax * 0.24;
+  const disciplineMax = dailyMax * 0.18;
   const personalMax = dailyMax * 0.2;
   const characterMax = dailyMax * 0.1;
 
   const weightScore = computeWeightProgressScore(challenge.startingWeight, challenge.goalWeight, challenge.currentWeight ?? log.weight);
   const bodyRaw =
-    weightScore * 0.3 +
-    caloriesRangeScore(log.calories, challenge.calorieTarget, challenge.gender, warnings) * 0.2 +
+    weightScore * 0.1 +
+    caloriesRangeScore(log.calories, challenge.calorieTarget, challenge.gender, warnings) * 0.25 +
     moreIsBetterScore(log.steps, challenge.stepGoal) * 0.2 +
-    moreIsBetterScore(log.water, challenge.waterGoal) * 0.1 +
-    moreIsBetterScore(log.exerciseMinutes, challenge.exerciseMinuteGoal, 1) * 0.2;
+    moreIsBetterScore(log.water, challenge.waterGoal) * 0.25 +
+    moreIsBetterScore(log.exerciseMinutes, challenge.exerciseMinuteGoal, 1.05) * 0.2;
 
   const salahBase = clamp((log.salahCompleted || 0) / 5, 0, 1);
   const salahBonus = (log.salahOnTime || 0) > 0 ? Math.min(0.1, ((log.salahOnTime || 0) / 5) * 0.1) : 0;
   const quranRaw =
-    moreIsBetterScore(log.quranMemorized, challenge.memorizeGoal) * 0.4 +
+    moreIsBetterScore(log.quranMemorized, challenge.memorizeGoal) * 0.35 +
     moreIsBetterScore(log.quranReviewed, challenge.reviewGoal) * 0.3 +
-    clamp(salahBase + salahBonus, 0, 1) * 0.3;
+    clamp(salahBase + salahBonus, 0, 1) * 0.35;
 
-  const disciplineRaw =
-    sleepRangeScore(log.sleepHours) * 0.25 +
-    computeWakeScore(challenge.wakeTargetMinutes, log.wakeActualMinutes) * 0.15 +
-    lessIsBetterScore(log.screenTimeHours, challenge.screenTimeLimit) * 0.2 +
-    lessIsBetterScore(log.moneySpent, challenge.moneyDailyPaceLimit) * 0.2 +
-    clamp(challenge.monthlyLimitScoreAverage, 0, 1) * 0.2;
+  const disciplineParts = [
+    sleepRangeScore(log.sleepHours) * 0.3,
+    computeWakeScore(challenge.wakeTargetMinutes, log.wakeActualMinutes) * 0.15,
+    lessIsBetterScore(log.screenTimeHours, challenge.screenTimeLimit) * 0.25,
+    lessIsBetterScore(log.moneySpent, challenge.moneyDailyPaceLimit) * 0.15,
+    clamp(challenge.monthlyLimitScoreAverage, 0, 1) * 0.15,
+  ];
+  const disciplineRaw = disciplineParts.reduce((sum, value) => sum + value, 0);
 
   const personalRaw = goalResultScore(log.personalGoal1) * 0.5 + goalResultScore(log.personalGoal2) * 0.5;
   const characterRaw =
     clamp(log.randomTasksCompleted / 3, 0, 1) * 0.4 +
     (log.joyTaskDone ? 1 : 0) * 0.2 +
-    (log.reflectionSubmitted ? 1 : 0) * 0.2 +
-    (log.serviceOrFamilyExtra ? 1 : 0) * 0.2;
+    (log.reflectionSubmitted ? 1 : 0) * 0.25 +
+    (log.serviceOrFamilyExtra ? 1 : 0) * 0.15;
 
-  const body = bodyRaw * bodyMax;
-  const quran = quranRaw * quranMax;
-  const discipline = disciplineRaw * disciplineMax;
-  const personal = personalRaw * personalMax;
-  const character = characterRaw * characterMax;
+  let body = bodyRaw * bodyMax;
+  let quran = quranRaw * quranMax;
+  let discipline = disciplineRaw * disciplineMax;
+  let personal = personalRaw * personalMax;
+  let character = characterRaw * characterMax;
+
+  body = visibleMinimum(body, Boolean(log.calories || log.water || log.steps || log.exerciseMinutes || log.weight));
+  quran = visibleMinimum(quran, Boolean(log.quranMemorized || log.quranReviewed || log.salahCompleted));
+  discipline = visibleMinimum(discipline, Boolean(log.sleepHours || log.wakeActualMinutes || log.screenTimeHours || log.moneySpent));
+  personal = visibleMinimum(personal, log.personalGoal1 !== "missed" || log.personalGoal2 !== "missed");
+  character = visibleMinimum(character, Boolean(log.randomTasksCompleted || log.joyTaskDone || log.reflectionSubmitted || log.serviceOrFamilyExtra));
+
+  const total = body + quran + discipline + personal + character;
 
   return {
     body: roundThree(body),
@@ -174,7 +193,7 @@ export function computeDailyPoints(challenge: ChallengeScoringInput, log: DailyL
     discipline: roundThree(discipline),
     personal: roundThree(personal),
     character: roundThree(character),
-    total: roundThree(body + quran + discipline + personal + character),
+    total: roundThree(total),
     warnings,
   };
 }
@@ -188,7 +207,7 @@ export function computePaceStatus(currentScore: number, dayNumber: number, total
 }
 
 export function isPerfectDay(pointsEarned: number, totalDays: number) {
-  const dailyMax = 100 / Math.max(30, totalDays);
+  const dailyMax = 100 / Math.max(1, totalDays);
   return pointsEarned >= dailyMax * 0.9;
 }
 
@@ -208,7 +227,7 @@ function daysBetween(start?: string, end?: string) {
   if (!start || !end) return 90;
   const startDay = new Date(`${String(start).slice(0, 10)}T00:00:00`);
   const endDay = new Date(`${String(end).slice(0, 10)}T00:00:00`);
-  return Math.max(30, Math.floor((endDay.getTime() - startDay.getTime()) / 86400000) + 1);
+  return Math.max(1, Math.floor((endDay.getTime() - startDay.getTime()) / 86400000) + 1);
 }
 
 function timeToMinutes(value?: string) {
@@ -225,22 +244,25 @@ function normalizeGoalResult(value: any): GoalResult {
 
 export function computePointsFromSavedCheckIn(draft: Record<string, any>, saved: Record<string, any>): DailyPointBreakdown {
   const entries = saved.entries || {};
+  const screenLimit = Number(draft.screenLimit || draft.screenTimeLimit || 3);
+  const monthlySpending = Number(draft.spendingLimit || 300);
+  const totalDays = daysBetween(draft.startDate, draft.endDate);
   const challenge: ChallengeScoringInput = {
-    totalDays: daysBetween(draft.startDate, draft.endDate),
+    totalDays,
     dayNumber: dateDiffDays(draft.startDate),
     gender: draft.gender || "prefer_not_to_say",
     startingWeight: Number(draft.currentWeightLbs || draft.currentWeight || 0),
     goalWeight: Number(draft.goalWeightLbs || draft.goalWeight || 0),
-    currentWeight: Number(saved.weight || draft.currentWeightLbs || 0),
+    currentWeight: Number(saved.weight || draft.currentWeightLbs || draft.currentWeight || 0),
     calorieTarget: Number(draft.calorieTarget || 2200),
     stepGoal: Number(draft.stepTarget || 10000),
     waterGoal: Number(draft.waterTarget || 8),
     exerciseMinuteGoal: Number(draft.exerciseMinutes || draft.workoutMinutes || 45),
     memorizeGoal: Number(draft.quranDailyTarget || draft.dailyMemorizeGoal || 1),
     reviewGoal: Number(draft.quranReviewTarget || draft.dailyReviewGoal || 1),
-    screenTimeLimit: Number(draft.screenTimeLimit || 3),
-    moneyDailyPaceLimit: Number(draft.moneyDailyPaceLimit || 25),
-    monthlyLimitScoreAverage: 1,
+    screenTimeLimit: screenLimit,
+    moneyDailyPaceLimit: Number(draft.moneyDailyPaceLimit || Math.max(1, Math.round(monthlySpending / 30))),
+    monthlyLimitScoreAverage: 0,
     wakeTargetMinutes: timeToMinutes(draft.wakeTime),
   };
 
@@ -262,10 +284,10 @@ export function computePointsFromSavedCheckIn(draft: Record<string, any>, saved:
     moneySpent: sumEntries(entries.money),
     personalGoal1: normalizeGoalResult(saved.goals?.goal1),
     personalGoal2: normalizeGoalResult(saved.goals?.goal2),
-    randomTasksCompleted: 0,
-    joyTaskDone: false,
+    randomTasksCompleted: Number(saved.randomTasksCompleted || 0),
+    joyTaskDone: Boolean(saved.joyTaskDone),
     reflectionSubmitted: Boolean(reflection.mood || reflection.notes || reflection.slipped || reflection.wentWell),
-    serviceOrFamilyExtra: false,
+    serviceOrFamilyExtra: Boolean(saved.serviceOrFamilyExtra),
   };
 
   return computeDailyPoints(challenge, log);
@@ -273,17 +295,27 @@ export function computePointsFromSavedCheckIn(draft: Record<string, any>, saved:
 
 export function aggregateCheckInScores(draft: Record<string, any>): AggregateCheckInScoresResult {
   const checkins = draft.checkins || {};
-  return Object.values(checkins).reduce<AggregateCheckInScoresResult>(
+  const result = Object.values(checkins).reduce<AggregateCheckInScoresResult>(
     (acc, checkin: any) => {
-      const points = checkin.computedPoints || computePointsFromSavedCheckIn(draft, checkin);
-      acc.total += points.total || 0;
-      acc.pillars.quwwah += points.body || 0;
-      acc.pillars.imaan += points.quran || 0;
-      acc.pillars.sabr += points.discipline || 0;
-      acc.pillars.niyyah += points.personal || 0;
-      acc.pillars.adab += points.character || 0;
+      const points = checkin.computedPoints || checkin.computed_points || computePointsFromSavedCheckIn(draft, checkin);
+      acc.total += Number(points.total || 0);
+      acc.pillars.quwwah += Number(points.body || 0);
+      acc.pillars.imaan += Number(points.quran || 0);
+      acc.pillars.sabr += Number(points.discipline || 0);
+      acc.pillars.niyyah += Number(points.personal || 0);
+      acc.pillars.adab += Number(points.character || 0);
       return acc;
     },
     { total: 0, pillars: { quwwah: 0, imaan: 0, sabr: 0, niyyah: 0, adab: 0 } }
   );
+  return {
+    total: roundThree(result.total),
+    pillars: {
+      quwwah: roundThree(result.pillars.quwwah),
+      imaan: roundThree(result.pillars.imaan),
+      sabr: roundThree(result.pillars.sabr),
+      niyyah: roundThree(result.pillars.niyyah),
+      adab: roundThree(result.pillars.adab),
+    },
+  };
 }
