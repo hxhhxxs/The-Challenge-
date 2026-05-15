@@ -10,10 +10,19 @@
   box-sizing: border-box;
 }
 
+html {
+  scroll-padding-bottom: calc(env(safe-area-inset-bottom) + 96px);
+}
+
 body {
   margin: 0;
   background: #fff8ed;
   color: #0f172a;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 96px);
+}
+
+main {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 96px);
 }
 
 input,
