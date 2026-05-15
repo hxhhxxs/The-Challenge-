@@ -12,6 +12,7 @@ import { computePillarStats } from "@/lib/pillars";
 import { getDailyLearningItem } from "@/lib/content-library";
 import { DashboardHeader, LearningCard, LineIcon, formatDate, hijriLabel } from "./dashboard-components";
 import { CalmDashboardCard, todayDoneCount } from "./calm-cards";
+import { DailyDuaCard } from "./dua-card";
 
 export default function DashboardMain() {
   const router = useRouter();
@@ -62,6 +63,7 @@ export default function DashboardMain() {
       <div className="mx-auto max-w-6xl space-y-6">
         <DashboardHeader draft={draft} router={router} marker="The Challenge" subtitle={`Day ${status.dayNumber} of ${status.totalDays} • ${formatDate(today)} • ${hijriLabel(today)}`} />
         <LearningCard item={learning} />
+        <DailyDuaCard date={today} />
         <section className="grid gap-4 md:grid-cols-2">
           <CalmDashboardCard href="/check-in" icon={<LineIcon kind="check" />} title="Today’s Mission" subtitle={`${todayDoneCount(draft)} actions logged today`} action="Open Tracker" />
           <CalmDashboardCard href="/progress" icon={<LineIcon kind="chart" />} title="Score & Pace" subtitle={`${score}/100 • ${stats.overallRank}`} action="See Progress" />
