@@ -50,15 +50,15 @@ export function RankEmblem({ score }: { score: number }) {
 
 export function DashboardHeader({ draft, subtitle, marker, router }: { draft: Record<string, any>; subtitle: string; marker: string; router: any }) {
   return (
-    <header className="rounded-[2rem] bg-slate-950 p-6 text-white">
+    <header className="theme-hero rounded-[2rem] p-6 shadow-xl">
       <div className="flex items-center justify-between gap-4">
-        <button onClick={() => router.push("/settings")} className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-400 text-lg font-black text-slate-950">{String(draft.name || "C").slice(0, 1)}</button>
+        <button onClick={() => router.push("/settings")} className="theme-accent-bg flex h-12 w-12 items-center justify-center rounded-full text-lg font-black text-slate-950 shadow-lg">{String(draft.name || "C").slice(0, 1)}</button>
         <div className="text-center">
-          <p className="text-xs font-black text-emerald-300">{marker}</p>
+          <p className="text-xs font-black theme-gradient-text">{marker}</p>
           <h1 className="text-2xl font-black">{greetingFor(draft.name)}</h1>
-          <p className="text-sm font-bold text-slate-300">{subtitle}</p>
+          <p className="text-sm font-bold opacity-75">{subtitle}</p>
         </div>
-        <Link href="/profile" className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-sm font-black text-emerald-200">{String(draft.name || "C").slice(0, 1)}</Link>
+        <Link href="/profile" className="theme-pill flex h-12 w-12 items-center justify-center rounded-full text-sm font-black">{String(draft.name || "C").slice(0, 1)}</Link>
       </div>
     </header>
   );
@@ -69,17 +69,17 @@ export function LearningCard({ item }: { item: Record<string, any> }) {
   const englishText = item.shortText || FALLBACK_ENGLISH;
   const referenceText = item.reference || FALLBACK_REF;
   return (
-    <Link href="/learning" className="block rounded-[2rem] bg-emerald-950 p-6 text-white shadow-xl transition hover:-translate-y-1 hover:shadow-2xl">
+    <Link href="/learning" className="theme-hero block rounded-[2rem] p-6 shadow-xl transition hover:-translate-y-1 hover:shadow-2xl">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div><p className="text-sm font-black text-emerald-300">Today's Qur'an / Hadith</p><h2 className="mt-1 text-3xl font-black">{item.title || "With hardship comes ease"}</h2></div>
-        <span className="rounded-full bg-emerald-400 px-4 py-2 text-xs font-black text-slate-950">Open library</span>
+        <div><p className="text-sm font-black theme-gradient-text">Today's Qur'an / Hadith</p><h2 className="mt-1 text-3xl font-black">{item.title || "With hardship comes ease"}</h2></div>
+        <span className="theme-accent-bg rounded-full px-4 py-2 text-xs font-black text-slate-950">Open library</span>
       </div>
-      <div className="mt-5 rounded-[1.5rem] border border-emerald-300/30 bg-white/10 p-5">
-        <p className="mb-2 text-xs font-black uppercase tracking-wide text-emerald-200">Arabic</p>
-        <p dir="rtl" lang="ar" className="text-right text-4xl font-black leading-loose text-white">{arabicText}</p>
+      <div className="theme-border mt-5 rounded-[1.5rem] border bg-white/10 p-5">
+        <p className="mb-2 text-xs font-black uppercase tracking-wide opacity-70">Arabic</p>
+        <p dir="rtl" lang="ar" className="text-right text-4xl font-black leading-loose">{arabicText}</p>
       </div>
-      <p className="mt-5 text-lg font-semibold leading-8 text-emerald-50">{englishText}</p>
-      <p className="mt-2 text-xs font-black text-emerald-200">{referenceText}</p>
+      <p className="mt-5 text-lg font-semibold leading-8 opacity-90">{englishText}</p>
+      <p className="mt-2 text-xs font-black opacity-70">{referenceText}</p>
     </Link>
   );
 }
@@ -88,13 +88,13 @@ export function HomeCard({ href, icon, label, title, text, badge, disabled = fal
   return (
     <Link href={href} onClick={(e) => { if (disabled) e.preventDefault(); }} className={`${cardClass} group transition ${disabled ? "cursor-not-allowed opacity-60" : "hover:-translate-y-1 hover:shadow-2xl"}`}>
       <div className="flex items-start justify-between gap-4">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-900">{icon}</div>
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600 group-hover:bg-emerald-100 group-hover:text-emerald-800">{badge}</span>
+        <div className="theme-icon-box flex h-14 w-14 items-center justify-center rounded-2xl">{icon}</div>
+        <span className="theme-accent-soft rounded-full px-3 py-1 text-xs font-black">{badge}</span>
       </div>
-      <p className="mt-5 text-sm font-black text-emerald-700">{label}</p>
-      <h2 className="mt-1 text-2xl font-black text-slate-950">{title}</h2>
-      <p className="mt-2 text-sm leading-6 text-slate-600">{text}</p>
-      <p className="mt-5 text-sm font-black text-emerald-700">{disabled ? "Locked" : "Open →"}</p>
+      <p className="mt-5 text-sm font-black theme-action-text">{label}</p>
+      <h2 className="mt-1 text-2xl font-black">{title}</h2>
+      <p className="mt-2 text-sm leading-6 opacity-70">{text}</p>
+      <p className="mt-5 text-sm font-black theme-action-text">{disabled ? "Locked" : "Open →"}</p>
     </Link>
   );
 }
