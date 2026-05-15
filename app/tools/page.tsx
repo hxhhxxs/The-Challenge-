@@ -5,6 +5,7 @@ import { cardClass, pageBg } from "@/lib/challenge-ui";
 const groups = [
   { heading: "Settings", items: [
     { title: "Profile", href: "/profile", icon: "users", description: "View your identity, title, and 5 Pillars." },
+    { title: "Edit Plan", href: "/edit-plan", icon: "sliders", description: "Update calories, Qur'an, workouts, goals, and limits." },
     { title: "Settings", href: "/settings", icon: "sliders", description: "Update account, privacy, and challenge preferences." },
   ]},
   { heading: "Daily Tools", items: [
