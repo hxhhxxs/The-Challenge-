@@ -1,3 +1,5 @@
+import { extendedAyahBank } from "./extended-ayah-bank";
+
 export type LearningItem = {
   id: string;
   type: "verse" | "hadith" | "sahaba_story" | "prophet_story" | "daily_task" | "weekly_task" | "joy_task";
@@ -10,18 +12,7 @@ export type LearningItem = {
   readingTimeSeconds: number;
 };
 
-export const verseBank: LearningItem[] = [
-  { id: "verse-001", type: "verse", title: "Allah does not burden a soul", arabicText: "لَا يُكَلِّفُ اللَّهُ نَفْسًا إِلَّا وُسْعَهَا", shortText: "Allah does not burden a soul beyond its capacity.", reference: "Qur'an 2:286", themes: ["Trust", "Hope"], readingTimeSeconds: 30 },
-  { id: "verse-002", type: "verse", title: "With hardship comes ease", arabicText: "فَإِنَّ مَعَ الْعُسْرِ يُسْرًا ۝ إِنَّ مَعَ الْعُسْرِ يُسْرًا", shortText: "With hardship comes ease. Indeed, with hardship comes ease.", reference: "Qur'an 94:5-6", themes: ["Hope", "Patience"], readingTimeSeconds: 30 },
-  { id: "verse-003", type: "verse", title: "Change begins within", arabicText: "إِنَّ اللَّهَ لَا يُغَيِّرُ مَا بِقَوْمٍ حَتَّىٰ يُغَيِّرُوا مَا بِأَنفُسِهِمْ", shortText: "Allah will not change the condition of a people until they change themselves.", reference: "Qur'an 13:11", themes: ["Self-work", "Discipline"], readingTimeSeconds: 30 },
-  { id: "verse-004", type: "verse", title: "Allah is enough", arabicText: "وَمَن يَتَوَكَّلْ عَلَى اللَّهِ فَهُوَ حَسْبُهُ", shortText: "Whoever relies on Allah, He is enough for him.", reference: "Qur'an 65:3", themes: ["Trust", "Tawakkul"], readingTimeSeconds: 30 },
-  { id: "verse-005", type: "verse", title: "Do not despair", arabicText: "لَا تَقْنَطُوا مِن رَّحْمَةِ اللَّهِ", shortText: "Do not despair of the mercy of Allah.", reference: "Qur'an 39:53", themes: ["Mercy", "Repentance"], readingTimeSeconds: 30 },
-  { id: "verse-006", type: "verse", title: "Good tidings to the patient", arabicText: "وَبَشِّرِ الصَّابِرِينَ", shortText: "Give good tidings to the patient.", reference: "Qur'an 2:155", themes: ["Patience"], readingTimeSeconds: 30 },
-  { id: "verse-007", type: "verse", title: "Remember Me", arabicText: "فَاذْكُرُونِي أَذْكُرْكُمْ", shortText: "Remember Me, and I will remember you.", reference: "Qur'an 2:152", themes: ["Dhikr"], readingTimeSeconds: 30 },
-  { id: "verse-008", type: "verse", title: "Gratitude increases", arabicText: "لَئِن شَكَرْتُمْ لَأَزِيدَنَّكُمْ", shortText: "If you are grateful, I will surely increase you.", reference: "Qur'an 14:7", themes: ["Gratitude"], readingTimeSeconds: 30 },
-  { id: "verse-009", type: "verse", title: "Seek help through prayer", arabicText: "وَاسْتَعِينُوا بِالصَّبْرِ وَالصَّلَاةِ", shortText: "Seek help through patience and prayer.", reference: "Qur'an 2:45", themes: ["Salah", "Patience"], readingTimeSeconds: 30 },
-  { id: "verse-010", type: "verse", title: "Compete in good", arabicText: "فَاسْتَبِقُوا الْخَيْرَاتِ", shortText: "Compete with one another in good deeds.", reference: "Qur'an 2:148", themes: ["Action", "Competition"], readingTimeSeconds: 30 },
-];
+export const verseBank: LearningItem[] = extendedAyahBank;
 
 export const hadithBank: LearningItem[] = [
   { id: "hadith-001", type: "hadith", title: "Actions by intentions", arabicText: "إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ", shortText: "Actions are judged by intentions, and every person will have what they intended.", reference: "Bukhari and Muslim — Umar", themes: ["Niyyah", "Sincerity"], readingTimeSeconds: 40 },
@@ -50,15 +41,15 @@ export const prophetStories: LearningItem[] = [
 
 export const dailyTaskBank: LearningItem[] = [
   "Drink a glass of water before every meal", "No sugary drinks today", "Walk 10 minutes after each meal", "Stretch for 10 minutes", "Make your bed first thing", "Clean your desk for 10 minutes", "Call your mother or father", "Do one good deed and tell no one", "Read 5 pages", "Track every single expense today", "Give sadaqah, even a small amount", "Make du'a for someone by name", "Say Astaghfirullah 100 times", "Send salawat on the Prophet ﷺ 100 times", "Pray Fajr on time"
-].map((task, index) => ({ id: `daily-task-${String(index + 1).padStart(3, "0")}`, type: "daily_task", title: task, shortText: task, themes: ["Daily Task"], readingTimeSeconds: 15 }));
+].map((task, index) => ({ id: `daily-task-${String(index + 1).padStart(3, "0")}`, type: "daily_task" as const, title: task, shortText: task, themes: ["Daily Task"], readingTimeSeconds: 15 }));
 
 export const weeklyTaskBank: LearningItem[] = [
   "Walk 50,000+ total steps this week", "Memorize one new short surah or one full page", "Pray every fard prayer on time for 7 days", "No restaurant or fast food for 7 days", "Cook 5 meals at home this week", "Save the cost of one meal out", "Read 50 pages of any book", "Visit the masjid at least 3 times this week", "Make du'a daily for 7 different people", "Fast 3 days this week if able"
-].map((task, index) => ({ id: `weekly-task-${String(index + 1).padStart(3, "0")}`, type: "weekly_task", title: task, shortText: task, themes: ["Weekly Task"], readingTimeSeconds: 20 }));
+].map((task, index) => ({ id: `weekly-task-${String(index + 1).padStart(3, "0")}`, type: "weekly_task" as const, title: task, shortText: task, themes: ["Weekly Task"], readingTimeSeconds: 20 }));
 
 export const joyTaskBank: LearningItem[] = [
   "Draw or doodle for 20 minutes", "Take 5 creative photos", "Cook one full meal from scratch", "Watch the sunset without your phone", "Make tea or coffee for someone", "Write a letter to future you", "Practice Arabic calligraphy for 15 minutes", "Visit a park you've never been to", "Make a playlist for a friend", "Spend an evening reading by a single lamp"
-].map((task, index) => ({ id: `joy-task-${String(index + 1).padStart(3, "0")}`, type: "joy_task", title: task, shortText: task, themes: ["Joy"], readingTimeSeconds: 20 }));
+].map((task, index) => ({ id: `joy-task-${String(index + 1).padStart(3, "0")}`, type: "joy_task" as const, title: task, shortText: task, themes: ["Joy"], readingTimeSeconds: 20 }));
 
 export const learningItems: LearningItem[] = [
   ...verseBank,
