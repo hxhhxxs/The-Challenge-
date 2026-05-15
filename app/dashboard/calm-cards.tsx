@@ -5,11 +5,11 @@ export function CalmDashboardCard({ href, icon, title, subtitle, action }: { hre
   return (
     <Link href={href} className={`${cardClass} group block transition hover:-translate-y-1 hover:shadow-2xl`}>
       <div className="flex items-start gap-4">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-900">{icon}</div>
+        <div className="theme-icon-box flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl">{icon}</div>
         <div>
-          <h2 className="text-2xl font-black text-slate-950">{title}</h2>
-          <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{subtitle}</p>
-          <p className="mt-5 text-sm font-black text-emerald-700">{action} →</p>
+          <h2 className="text-2xl font-black">{title}</h2>
+          <p className="mt-1 text-sm font-semibold leading-6 opacity-70">{subtitle}</p>
+          <p className="mt-5 text-sm font-black theme-action-text">{action} →</p>
         </div>
       </div>
     </Link>
