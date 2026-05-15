@@ -71,31 +71,33 @@ export function roundThree(value: number) {
   return Math.round(value * 1000) / 1000;
 }
 
-export function moreIsBetterScore(actual = 0, target = 1, bonusCap = 1.15) {
+export function proportionalScore(actual = 0, target = 1, cap = 1) {
   if (target <= 0) return actual > 0 ? 1 : 0;
-  return clamp(actual / target, 0, bonusCap) / bonusCap;
+  return clamp(actual / target, 0, cap);
+}
+
+export function moreIsBetterScore(actual = 0, target = 1, bonusCap = 1) {
+  return proportionalScore(actual, target, bonusCap) / bonusCap;
 }
 
 export function caloriesRangeScore(actual: number | undefined, target: number, gender: Gender, warnings: string[]) {
   if (!actual || actual <= 0 || target <= 0) return 0;
+
+  // Simple proportional scoring while the day is in progress:
+  // 500 / 2500 calories = 20% of the calorie points.
+  // Once the user reaches the target, they get full calorie credit.
+  const ratio = proportionalScore(actual, target, 1);
+
   const hardFloor = gender === "female" ? 1200 : 1500;
-  if (actual < hardFloor) warnings.push("Calories are logged, but the full calorie target is not reached yet.");
-
-  // Award partial progress while the day is still being built. The old version returned
-  // zero under 1500/1200 kcal, so breakfast could save correctly but still show 0 pts.
-  if (actual < target * 0.75) return clamp(actual / Math.max(1, target * 0.75), 0, 0.9);
-
-  const differenceRatio = Math.abs(actual - target) / target;
-  if (differenceRatio <= 0.1) return 1;
-  if (differenceRatio <= 0.25) return 1 - ((differenceRatio - 0.1) / 0.15) * 0.35;
-  return 0.35;
+  if (actual < hardFloor) warnings.push("Calories are building toward your target. Keep logging meals honestly.");
+  return ratio;
 }
 
 export function sleepRangeScore(hours?: number) {
   if (!hours || hours <= 0) return 0;
   if (hours >= 7 && hours <= 9) return 1;
-  if (hours < 7) return clamp((hours - 4) / 3, 0, 1);
-  return clamp((12 - hours) / 3, 0, 1);
+  if (hours < 7) return clamp(hours / 7, 0, 1);
+  return clamp(9 / hours, 0, 1);
 }
 
 export function lessIsBetterScore(actual = 0, limit = 1) {
@@ -116,6 +118,7 @@ export function computeWeightProgressScore(startingWeight?: number, goalWeight?:
   if (startingWeight === goalWeight) return 1;
   const totalNeeded = Math.abs(startingWeight - goalWeight);
   const moved = startingWeight > goalWeight ? startingWeight - currentWeight : currentWeight - startingWeight;
+  // Example: goal is lose 10 lb, user lost 5 lb => 5/10 = 50% of weight-progress points.
   return clamp(moved / totalNeeded, 0, 1);
 }
 
@@ -127,64 +130,56 @@ export function computeWakeScore(targetMinutes?: number, actualMinutes?: number)
   return 0;
 }
 
-function visibleMinimum(value: number, wasLogged: boolean, minimum = 0.02) {
-  if (!wasLogged) return value;
-  if (value <= 0) return minimum;
-  return Math.max(value, minimum);
-}
-
 export function computeDailyPoints(challenge: ChallengeScoringInput, log: DailyLogScoringInput): DailyPointBreakdown {
   const warnings: string[] = [];
   const dailyMax = 100 / Math.max(1, challenge.totalDays);
+
   const bodyMax = dailyMax * 0.28;
   const quranMax = dailyMax * 0.24;
   const disciplineMax = dailyMax * 0.18;
   const personalMax = dailyMax * 0.2;
   const characterMax = dailyMax * 0.1;
 
+  // Body points are proportional to each target. If steps are 20% of body and the user
+  // walks 1,000/10,000, they earn 10% of that steps slice.
   const weightScore = computeWeightProgressScore(challenge.startingWeight, challenge.goalWeight, challenge.currentWeight ?? log.weight);
+  const caloriesScore = caloriesRangeScore(log.calories, challenge.calorieTarget, challenge.gender, warnings);
+  const stepsScore = proportionalScore(log.steps, challenge.stepGoal);
+  const waterScore = proportionalScore(log.water, challenge.waterGoal);
+  const exerciseScore = proportionalScore(log.exerciseMinutes, challenge.exerciseMinuteGoal);
   const bodyRaw =
     weightScore * 0.1 +
-    caloriesRangeScore(log.calories, challenge.calorieTarget, challenge.gender, warnings) * 0.25 +
-    moreIsBetterScore(log.steps, challenge.stepGoal) * 0.2 +
-    moreIsBetterScore(log.water, challenge.waterGoal) * 0.25 +
-    moreIsBetterScore(log.exerciseMinutes, challenge.exerciseMinuteGoal, 1.05) * 0.2;
+    caloriesScore * 0.25 +
+    stepsScore * 0.2 +
+    waterScore * 0.25 +
+    exerciseScore * 0.2;
 
-  const salahBase = clamp((log.salahCompleted || 0) / 5, 0, 1);
-  const salahBonus = (log.salahOnTime || 0) > 0 ? Math.min(0.1, ((log.salahOnTime || 0) / 5) * 0.1) : 0;
+  const salahScore = proportionalScore(log.salahCompleted, 5);
+  const salahOnTimeBonus = Math.min(0.1, proportionalScore(log.salahOnTime, 5) * 0.1);
   const quranRaw =
-    moreIsBetterScore(log.quranMemorized, challenge.memorizeGoal) * 0.35 +
-    moreIsBetterScore(log.quranReviewed, challenge.reviewGoal) * 0.3 +
-    clamp(salahBase + salahBonus, 0, 1) * 0.35;
+    proportionalScore(log.quranMemorized, challenge.memorizeGoal) * 0.35 +
+    proportionalScore(log.quranReviewed, challenge.reviewGoal) * 0.3 +
+    clamp(salahScore + salahOnTimeBonus, 0, 1) * 0.35;
 
-  const disciplineParts = [
-    sleepRangeScore(log.sleepHours) * 0.3,
-    computeWakeScore(challenge.wakeTargetMinutes, log.wakeActualMinutes) * 0.15,
-    lessIsBetterScore(log.screenTimeHours, challenge.screenTimeLimit) * 0.25,
-    lessIsBetterScore(log.moneySpent, challenge.moneyDailyPaceLimit) * 0.15,
-    clamp(challenge.monthlyLimitScoreAverage, 0, 1) * 0.15,
-  ];
-  const disciplineRaw = disciplineParts.reduce((sum, value) => sum + value, 0);
+  const disciplineRaw =
+    sleepRangeScore(log.sleepHours) * 0.3 +
+    computeWakeScore(challenge.wakeTargetMinutes, log.wakeActualMinutes) * 0.15 +
+    lessIsBetterScore(log.screenTimeHours, challenge.screenTimeLimit) * 0.25 +
+    lessIsBetterScore(log.moneySpent, challenge.moneyDailyPaceLimit) * 0.15 +
+    clamp(challenge.monthlyLimitScoreAverage, 0, 1) * 0.15;
 
   const personalRaw = goalResultScore(log.personalGoal1) * 0.5 + goalResultScore(log.personalGoal2) * 0.5;
   const characterRaw =
-    clamp(log.randomTasksCompleted / 3, 0, 1) * 0.4 +
+    proportionalScore(log.randomTasksCompleted, 3) * 0.4 +
     (log.joyTaskDone ? 1 : 0) * 0.2 +
     (log.reflectionSubmitted ? 1 : 0) * 0.25 +
     (log.serviceOrFamilyExtra ? 1 : 0) * 0.15;
 
-  let body = bodyRaw * bodyMax;
-  let quran = quranRaw * quranMax;
-  let discipline = disciplineRaw * disciplineMax;
-  let personal = personalRaw * personalMax;
-  let character = characterRaw * characterMax;
-
-  body = visibleMinimum(body, Boolean(log.calories || log.water || log.steps || log.exerciseMinutes || log.weight));
-  quran = visibleMinimum(quran, Boolean(log.quranMemorized || log.quranReviewed || log.salahCompleted));
-  discipline = visibleMinimum(discipline, Boolean(log.sleepHours || log.wakeActualMinutes || log.screenTimeHours || log.moneySpent));
-  personal = visibleMinimum(personal, log.personalGoal1 !== "missed" || log.personalGoal2 !== "missed");
-  character = visibleMinimum(character, Boolean(log.randomTasksCompleted || log.joyTaskDone || log.reflectionSubmitted || log.serviceOrFamilyExtra));
-
+  const body = bodyRaw * bodyMax;
+  const quran = quranRaw * quranMax;
+  const discipline = disciplineRaw * disciplineMax;
+  const personal = personalRaw * personalMax;
+  const character = characterRaw * characterMax;
   const total = body + quran + discipline + personal + character;
 
   return {
