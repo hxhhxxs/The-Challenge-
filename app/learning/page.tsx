@@ -1,9 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { BottomNav } from "@/components/BottomNav";
 import { cardClass, pageBg } from "@/lib/challenge-ui";
 import { getDailyLearningItem, getRecommendedLearningItem, learningItems, type LearningItem } from "@/lib/content-library";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const filters = [
   { label: "All", value: "all" },
@@ -14,6 +16,7 @@ const filters = [
   { label: "Daily Tasks", value: "daily_task" },
   { label: "Weekly Tasks", value: "weekly_task" },
   { label: "Joy", value: "joy_task" },
+  { label: "Saved", value: "saved" },
 ];
 
 const moodOptions = [
@@ -24,20 +27,57 @@ const moodOptions = [
 ];
 
 export default function LearningPage() {
+  const router = useRouter();
   const [filter, setFilter] = useState("all");
   const [query, setQuery] = useState("");
   const [mood, setMood] = useState("discipline");
   const [saved, setSaved] = useState<string[]>([]);
+  const [userId, setUserId] = useState("");
+  const [saveMessage, setSaveMessage] = useState("");
   const daily = getDailyLearningItem();
   const recommended = getRecommendedLearningItem(mood);
 
+  useEffect(() => {
+    async function loadSaved() {
+      const supabase = createSupabaseBrowserClient();
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) { router.push("/login"); return; }
+      setUserId(data.user.id);
+      const { data: rows, error } = await supabase.from("user_saved_items").select("learning_item_id").eq("user_id", data.user.id);
+      if (!error && rows) setSaved(rows.map((row: any) => row.learning_item_id).filter(Boolean));
+      if (error) {
+        const local = typeof window !== "undefined" ? window.localStorage.getItem(`saved_learning_${data.user.id}`) : null;
+        if (local) setSaved(JSON.parse(local));
+      }
+    }
+    loadSaved();
+  }, [router]);
+
   const visibleItems = useMemo(() => learningItems.filter((item) => {
-    const matchesType = filter === "all" || item.type === filter;
+    const matchesType = filter === "all" || (filter === "saved" ? saved.includes(item.id) : item.type === filter);
     const text = `${item.title} ${item.shortText} ${item.arabicText || ""} ${item.reference || ""} ${item.themes.join(" ")}`.toLowerCase();
     return matchesType && (!query.trim() || text.includes(query.toLowerCase()));
-  }), [filter, query]);
+  }), [filter, query, saved]);
 
-  function toggleSave(id: string) { setSaved((current) => current.includes(id) ? current.filter((x) => x !== id) : [...current, id]); }
+  async function toggleSave(id: string) {
+    if (!userId) return;
+    const supabase = createSupabaseBrowserClient();
+    const isSaved = saved.includes(id);
+    const nextSaved = isSaved ? saved.filter((x) => x !== id) : [...saved, id];
+    setSaved(nextSaved);
+    setSaveMessage(isSaved ? "Removed from saved" : "Saved to your library");
+    setTimeout(() => setSaveMessage(""), 1800);
+
+    const result = isSaved
+      ? await supabase.from("user_saved_items").delete().eq("user_id", userId).eq("learning_item_id", id)
+      : await supabase.from("user_saved_items").upsert({ user_id: userId, learning_item_id: id, saved_at: new Date().toISOString() }, { onConflict: "user_id,learning_item_id" });
+
+    if (result.error && typeof window !== "undefined") {
+      window.localStorage.setItem(`saved_learning_${userId}`, JSON.stringify(nextSaved));
+      setSaveMessage("Saved locally. Create user_saved_items table for cloud sync.");
+      setTimeout(() => setSaveMessage(""), 2500);
+    }
+  }
 
   return (
     <main className={pageBg}>
@@ -47,6 +87,7 @@ export default function LearningPage() {
           <h1 className="mt-1 text-4xl font-black">Faith, stories, and daily inspiration.</h1>
           <p className="mt-2 max-w-2xl text-slate-300">Browse verses, hadiths, Sahaba stories, Prophet ﷺ stories, and challenge tasks from one place.</p>
         </section>
+        {saveMessage && <p className="rounded-2xl bg-emerald-50 p-3 text-sm font-black text-emerald-800">{saveMessage}</p>}
 
         <section className="grid gap-4 lg:grid-cols-2">
           <FeatureCard title="Today’s Verse" item={daily} saved={saved.includes(daily.id)} onSave={() => toggleSave(daily.id)} />
