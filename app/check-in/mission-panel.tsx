@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { getDailySmallMissions } from "@/lib/small-mission-bank";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ensureUserRecord } from "@/lib/supabase/ensure-user-record";
@@ -31,6 +32,27 @@ export function MissionPanel({ embedded = false }: { embedded?: boolean }) {
   const [draft, setDraft] = useState<Record<string, any>>({});
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (embedded) return;
+    function findNiyyahSection() {
+      const sections = Array.from(document.querySelectorAll("section"));
+      const niyyah = sections.find((section) => section.textContent?.includes("NIYYAH — Mission"));
+      if (!niyyah) return;
+      let target = niyyah.querySelector("[data-niyyah-small-missions]") as HTMLElement | null;
+      if (!target) {
+        target = document.createElement("div");
+        target.setAttribute("data-niyyah-small-missions", "true");
+        target.className = "mt-5";
+        niyyah.appendChild(target);
+      }
+      setPortalTarget(target);
+    }
+    findNiyyahSection();
+    const timer = setInterval(findNiyyahSection, 500);
+    return () => clearInterval(timer);
+  }, [embedded]);
 
   useEffect(() => {
     async function load() {
@@ -85,7 +107,7 @@ export function MissionPanel({ embedded = false }: { embedded?: boolean }) {
   }
 
   const panel = (
-    <div className={`rounded-[2rem] border border-emerald-100 bg-white p-5 ${embedded ? "shadow-none" : "shadow-xl"}`}>
+    <div className={`rounded-[2rem] border border-emerald-100 bg-white p-5 ${embedded || portalTarget ? "shadow-none" : "shadow-xl"}`}>
       <div className="flex flex-col justify-between gap-2 md:flex-row md:items-end">
         <div>
           <p className="text-sm font-black text-emerald-700">Niyyah Mission</p>
@@ -111,6 +133,7 @@ export function MissionPanel({ embedded = false }: { embedded?: boolean }) {
     </div>
   );
 
+  if (!embedded && portalTarget) return createPortal(panel, portalTarget);
   if (embedded) return panel;
-  return <section className="mx-auto max-w-5xl px-4 pt-5">{panel}</section>;
+  return null;
 }
