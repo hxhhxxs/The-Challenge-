@@ -1,4 +1,5 @@
 import { extendedAyahBank } from "./extended-ayah-bank";
+import { dailyStoryBank, getDailyStory } from "./daily-story-bank";
 
 export type LearningItem = {
   id: string;
@@ -25,12 +26,7 @@ export const hadithBank: LearningItem[] = [
   { id: "hadith-008", type: "hadith", title: "Knowledge path", arabicText: "مَنْ سَلَكَ طَرِيقًا يَلْتَمِسُ فِيهِ عِلْمًا سَهَّلَ اللَّهُ لَهُ بِهِ طَرِيقًا إِلَى الْجَنَّةِ", shortText: "Whoever travels a path seeking knowledge, Allah makes easy for them a path to Paradise.", reference: "Muslim — Abu Hurairah", themes: ["Knowledge"], readingTimeSeconds: 45 },
 ];
 
-export const sahabaStories: LearningItem[] = [
-  { id: "sahaba-001", type: "sahaba_story", title: "Abu Bakr — The First to Believe", shortText: "Abu Bakr accepted Islam without hesitation and spent his wealth supporting the early Muslims.", fullText: "When the Prophet ﷺ told Abu Bakr of revelation, Abu Bakr accepted without hesitation. He spent his wealth freeing slaves and supporting the early Muslim community. After the Prophet ﷺ passed, he helped hold the ummah together at its most fragile moment. Lesson: True faith means trust when the path is heavy.", reference: "Sahaba story", themes: ["Trust", "Faith"], readingTimeSeconds: 90 },
-  { id: "sahaba-002", type: "sahaba_story", title: "Umar — From Enemy to Pillar", shortText: "Umar set out against Islam, heard Qur'an, and returned changed.", fullText: "Umar ibn al-Khattab once set out against the Prophet ﷺ. On the way, he heard his sister reciting Surah Taha. His heart softened, he read, wept, and went to accept Islam. Lesson: One sincere encounter with truth can change a life.", reference: "Sahaba story", themes: ["Change", "Courage"], readingTimeSeconds: 90 },
-  { id: "sahaba-003", type: "sahaba_story", title: "Bilal — Ahad, Ahad", shortText: "Bilal endured torture while repeating: One, One.", fullText: "Bilal ibn Rabah was tortured under the desert sun for refusing to renounce Islam. Under pressure, he answered only: Ahad, Ahad — One, One. He later became the first muezzin of Islam. Lesson: They can harm the body, but not a heart anchored in Allah.", reference: "Sahaba story", themes: ["Faith", "Strength"], readingTimeSeconds: 90 },
-  { id: "sahaba-004", type: "sahaba_story", title: "Uthman — The Well of Ruma", shortText: "Uthman bought a well and donated it to the Muslims.", fullText: "When water was difficult for the Muslims in Madinah, Uthman ibn Affan bought the Well of Ruma and made it free for the community. Lesson: True wealth is what continues to benefit others.", reference: "Sahaba story", themes: ["Charity", "Service"], readingTimeSeconds: 80 },
-];
+export const sahabaStories: LearningItem[] = dailyStoryBank;
 
 export const prophetStories: LearningItem[] = [
   { id: "prophet-001", type: "prophet_story", title: "The First Revelation", shortText: "In Hira, the first command came: Iqra — Read.", fullText: "In the cave of Hira, Jibril came to Muhammad ﷺ and said: Iqra. The Prophet ﷺ returned home trembling, and Khadija comforted and believed him. Lesson: The most important moment of your life may begin with fear, then become your purpose.", reference: "Seerah", themes: ["Purpose", "Revelation"], readingTimeSeconds: 90 },
@@ -65,6 +61,10 @@ export function getDailyLearningItem(date = new Date()) {
   const start = new Date(date.getFullYear(), 0, 0);
   const dayOfYear = Math.floor((date.getTime() - start.getTime()) / 86400000);
   return verseBank[dayOfYear % verseBank.length];
+}
+
+export function getDailyStoryItem(date = new Date()) {
+  return getDailyStory(date);
 }
 
 export function getRecommendedLearningItem(mood?: string) {
