@@ -16,7 +16,7 @@ function safeName(user: LeaderboardUser, currentUserId: string) { if (user.id ==
 function scoreFor(user: LeaderboardUser) { return Number(user.current_score ?? user.onboarding_draft?.current_score ?? 0); }
 function pillarsFor(user: LeaderboardUser) { return (user.pillar_scores || user.onboarding_draft?.pillar_scores || {}) as Record<string, number>; }
 function titleFor(user: LeaderboardUser) { return scoreFor(user) > 0 ? computePillarStats(pillarsFor(user)).title : "Just Starting"; }
-function initials(user: LeaderboardUser, currentUserId: string) { return safeName(user, currentUserId).split(/\s+/).slice(0, 2).map((x) => x[0]).join("").toUpperCase() || "C"; }
+function initials(user: LeaderboardUser, currentUserId: string) { return safeName(user, currentUserId).split(/\s+/).slice(0, 2).map((x: string) => x[0]).join("").toUpperCase() || "C"; }
 
 export default function LeaderboardPage() {
   const router = useRouter();
