@@ -103,13 +103,20 @@ const duas: Array<[string, string]> = [
   ["اللَّهُمَّ اخْتِمْ لَنَا بِحُسْنِ الْخَاتِمَةِ", "O Allah, grant us a good ending."],
 ];
 
+const titles = [
+  "Acceptance from Allah", "Submission to Allah", "Good in This Life and the Next", "Patience and Victory", "Forgiveness for Mistakes", "A Steadfast Heart", "Mercy from Allah", "Forgiveness of Sins", "Returning After Wronging Ourselves", "Increase in Knowledge", "An Open Heart", "Ease in Your Affairs", "Forgiveness and Mercy", "In Need of Good", "Righteous Company", "Establishing Prayer", "Acceptance of Dua", "Forgiveness for Parents", "Mercy for Parents", "Family as Comfort", "Leadership in Taqwa", "Complete Our Light", "Forgive Us", "Reliance on Allah", "Returning to Allah", "The Final Return", "Protection from Trial", "Forgiveness for the Ummah", "A Clean Heart", "Gratitude for Blessings", "Good Deeds That Please Allah", "Mercy Among the Righteous", "Dua of Yunus", "Allah Is Sufficient", "The Best Protector", "Asking for Forgiveness", "Asking for Mercy", "Asking for Guidance", "Asking for Well-Being", "Asking for Provision", "Guidance, Taqwa, Purity, Contentment", "Beneficial Knowledge", "Pure Provision", "Accepted Deeds", "Protection from Anxiety", "Protection from Laziness", "Protection from Cowardice", "Protection from Debt", "Pardon and Forgiveness", "Istighfar", "Glorifying Allah", "Praise of Allah", "Magnifying Allah", "Tawheed", "Strength Through Allah", "Glory and Praise", "Glory of the Magnificent", "Salawat Upon the Prophet ﷺ", "Barakah Upon the Prophet ﷺ", "Leaving Home with Trust", "Good of the Day", "Protection from the Day's Harm", "Morning and Evening with Allah", "Life and Death Belong to Allah", "Sayyid al-Istighfar", "Servanthood to Allah", "Protection from Useless Knowledge", "A Humble Heart", "A Content Soul", "An Answered Dua", "A Good Ending in All Affairs", "Protection in Dunya and Akhirah", "Asking for Paradise", "Protection from the Fire", "Love of Allah", "Love of Allah's Beloved", "Love of Good Deeds", "Among Those Who Repent", "Among Those Who Purify", "Best of Life at the End", "Best of Deeds at the End", "Best Day Meeting Allah", "A Firm Heart", "O Turner of Hearts", "Correct My Religion", "Correct My Worldly Life", "Correct My Hereafter", "Beauty of Faith", "Guided and Guiding", "Seeking Allah's Pleasure", "Protection from Allah's Anger", "Asking for Well-Being", "Complete Healing", "Bless My Time", "Bless My Provision", "Bless My Family", "Use Me in Obedience", "Key to Goodness", "Do Not Leave Me to Myself", "A Good Final Ending",
+];
+
+function referenceFor(index: number) { return index < 35 ? "Qur'an" : "Daily du'a / Hisn al-Muslim style collection"; }
+function frequencyFor(index: number) { if (index >= 60 && index <= 65) return "Morning and evening"; if (index === 57 || index === 58) return "Any time, especially when remembering the Prophet ﷺ"; if (index === 48) return "Often throughout the day"; return "Once daily or whenever needed"; }
+
 export const extendedDuaBank: DuaItem[] = duas.map(([arabicText, translation], index) => ({
   id: `dua-${String(index + 1).padStart(3, "0")}`,
-  title: `Du'a ${index + 1}`,
+  title: titles[index] || "Daily Dua",
   arabicText,
   transliteration: "",
   translation,
-  reference: index < 35 ? "Qur'anic du'a / verified source recommended" : "Daily du'a / verified source recommended",
-  note: "Verify wording/source before publishing in printed material.",
+  reference: referenceFor(index),
+  note: frequencyFor(index),
   themes: ["Du'a", "Daily", index < 35 ? "Qur'an" : "Dhikr"],
 }));
