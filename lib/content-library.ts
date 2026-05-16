@@ -11,19 +11,29 @@ export type LearningItem = {
   reference?: string;
   themes: string[];
   readingTimeSeconds: number;
+  grade?: "Sahih" | "Hasan" | "Reference";
 };
 
-export const verseBank: LearningItem[] = extendedAyahBank;
+const verseThemes = [
+  "Patience and Prayer", "Allah Is With the Patient", "You Can Carry This", "With Hardship Comes Ease", "Ease Will Come Again", "Hearts Find Peace", "Allah Will Make a Way", "Provision From Unexpected Places", "Allah Is Enough", "Do Not Despair", "Allah Forgives", "Call Upon Me", "Increase Me in Knowledge", "Mercy Is Near", "Your Reward Is Not Lost", "Change Begins Within", "You Earn What You Strive For", "Remember Me", "Gratitude Brings Increase", "Do Not Weaken", "Rise With Faith", "Allah Loves the Patient", "None Can Overcome Allah's Help", "Allah Is Sufficient", "Remember the Hereafter", "True Success", "Allah Does Not Love Oppression", "Allah Is Never Unjust", "Return Through Forgiveness", "Stand for Justice", "Be Just", "Cooperate in Good", "Do Not Aid Harm", "A Life for Allah", "Mercy Encompasses All", "Beautiful Patience", "Do Not Lose Strength", "Allah Is With Us", "Only What Allah Wrote", "No Fear for Allah's Friends", "Success Is From Allah", "Never Despair of Relief", "Taqwa and Patience", "Allah Is Subtle", "Knowledge Has Levels", "Work and Allah Sees", "Patience Is Better", "Good Returns to You", "Righteousness With Faith", "A Good Life", "Blessings Cannot Be Counted", "Justice and Excellence", "Mercy to Parents", "Human Dignity", "Perhaps Mercy Is Near", "Youth of Faith", "Guidance Increases", "Stay With the Righteous", "Worldly Beauty", "Lasting Deeds", "Never Disappointed in Dua", "Love From the Most Merciful", "Allah Hears and Sees", "Hurry to Please Allah", "Scales of Justice", "So We Answered", "Rush to Good", "Hope and Fear", "Successful Believers", "Humility in Prayer", "The True King", "Allah Is Light", "Walk Humbly", "Repent and Believe", "Bad Deeds Replaced", "He Heals", "Gratitude to Parents", "Establish Prayer", "Command Good", "Forbid Wrong", "Be Patient", "No Arrogance", "Walk Humbly", "Allah Dislikes Arrogance", "Trust Allah", "Allah Is Enough as Guardian", "The Best Example", "Remember Allah Often", "Morning and Evening Dhikr", "Send Salawat", "Excellence Rewards Excellence", "Remember Allah's Name", "Allah Supports You", "Firm Feet", "Believers Are Family", "Make Peace", "Honor Is Taqwa", "He Is With You", "Race to Forgiveness", "Race to Paradise",
+];
+
+export const verseBank: LearningItem[] = extendedAyahBank.map((item, index) => ({
+  ...item,
+  title: verseThemes[index] || item.shortText.replace(/[.!?]$/g, ""),
+  reference: "Qur'an",
+  themes: item.themes.filter((theme) => theme !== "Qur'an reference — verify before publishing"),
+}));
 
 export const hadithBank: LearningItem[] = [
-  { id: "hadith-001", type: "hadith", title: "Actions by intentions", arabicText: "إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ", shortText: "Actions are judged by intentions, and every person will have what they intended.", reference: "Bukhari and Muslim — Umar", themes: ["Niyyah", "Sincerity"], readingTimeSeconds: 40 },
-  { id: "hadith-002", type: "hadith", title: "Speak good or remain silent", arabicText: "مَنْ كَانَ يُؤْمِنُ بِاللَّهِ وَالْيَوْمِ الآخِرِ فَلْيَقُلْ خَيْرًا أَوْ لِيَصْمُتْ", shortText: "Whoever believes in Allah and the Last Day should speak good or remain silent.", reference: "Bukhari and Muslim — Abu Hurairah", themes: ["Speech", "Character"], readingTimeSeconds: 40 },
-  { id: "hadith-003", type: "hadith", title: "Best to family", arabicText: "خَيْرُكُمْ خَيْرُكُمْ لِأَهْلِهِ", shortText: "The best of you are those who are best to their families.", reference: "Tirmidhi — Aisha", themes: ["Family", "Character"], readingTimeSeconds: 40 },
-  { id: "hadith-004", type: "hadith", title: "Smiling is charity", arabicText: "تَبَسُّمُكَ فِي وَجْهِ أَخِيكَ صَدَقَةٌ", shortText: "Smiling at your brother is charity.", reference: "Tirmidhi — Abu Dharr", themes: ["Character", "Charity"], readingTimeSeconds: 30 },
-  { id: "hadith-005", type: "hadith", title: "Real strength", arabicText: "لَيْسَ الشَّدِيدُ بِالصُّرَعَةِ، إِنَّمَا الشَّدِيدُ الَّذِي يَمْلِكُ نَفْسَهُ عِنْدَ الْغَضَبِ", shortText: "The strong person is the one who controls themselves in anger.", reference: "Bukhari — Abu Hurairah", themes: ["Self-control", "Sabr"], readingTimeSeconds: 40 },
-  { id: "hadith-006", type: "hadith", title: "Small consistent deeds", arabicText: "أَحَبُّ الأَعْمَالِ إِلَى اللَّهِ أَدْوَمُهَا وَإِنْ قَلَّ", shortText: "The most beloved deeds to Allah are those done consistently, even if small.", reference: "Bukhari and Muslim — Aisha", themes: ["Consistency", "Discipline"], readingTimeSeconds: 40 },
-  { id: "hadith-007", type: "hadith", title: "Good word", arabicText: "الْكَلِمَةُ الطَّيِّبَةُ صَدَقَةٌ", shortText: "A good word is charity.", reference: "Bukhari and Muslim — Abu Hurairah", themes: ["Speech", "Charity"], readingTimeSeconds: 30 },
-  { id: "hadith-008", type: "hadith", title: "Knowledge path", arabicText: "مَنْ سَلَكَ طَرِيقًا يَلْتَمِسُ فِيهِ عِلْمًا سَهَّلَ اللَّهُ لَهُ بِهِ طَرِيقًا إِلَى الْجَنَّةِ", shortText: "Whoever travels a path seeking knowledge, Allah makes easy for them a path to Paradise.", reference: "Muslim — Abu Hurairah", themes: ["Knowledge"], readingTimeSeconds: 45 },
+  { id: "hadith-001", type: "hadith", title: "Actions by intentions", arabicText: "إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ", shortText: "Actions are judged by intentions, and every person will have what they intended.", reference: "Sahih al-Bukhari and Sahih Muslim — narrated by Umar", themes: ["Niyyah", "Sincerity"], readingTimeSeconds: 40, grade: "Sahih" },
+  { id: "hadith-002", type: "hadith", title: "Speak good or remain silent", arabicText: "مَنْ كَانَ يُؤْمِنُ بِاللَّهِ وَالْيَوْمِ الآخِرِ فَلْيَقُلْ خَيْرًا أَوْ لِيَصْمُتْ", shortText: "Whoever believes in Allah and the Last Day should speak good or remain silent.", reference: "Sahih al-Bukhari and Sahih Muslim — narrated by Abu Hurairah", themes: ["Speech", "Character"], readingTimeSeconds: 40, grade: "Sahih" },
+  { id: "hadith-003", type: "hadith", title: "Best to family", arabicText: "خَيْرُكُمْ خَيْرُكُمْ لِأَهْلِهِ", shortText: "The best of you are those who are best to their families.", reference: "Jami' al-Tirmidhi — narrated by Aisha", themes: ["Family", "Character"], readingTimeSeconds: 40, grade: "Hasan" },
+  { id: "hadith-004", type: "hadith", title: "Smiling is charity", arabicText: "تَبَسُّمُكَ فِي وَجْهِ أَخِيكَ صَدَقَةٌ", shortText: "Smiling at your brother is charity.", reference: "Jami' al-Tirmidhi — narrated by Abu Dharr", themes: ["Character", "Charity"], readingTimeSeconds: 30, grade: "Hasan" },
+  { id: "hadith-005", type: "hadith", title: "Real strength", arabicText: "لَيْسَ الشَّدِيدُ بِالصُّرَعَةِ، إِنَّمَا الشَّدِيدُ الَّذِي يَمْلِكُ نَفْسَهُ عِنْدَ الْغَضَبِ", shortText: "The strong person is the one who controls themselves in anger.", reference: "Sahih al-Bukhari — narrated by Abu Hurairah", themes: ["Self-control", "Sabr"], readingTimeSeconds: 40, grade: "Sahih" },
+  { id: "hadith-006", type: "hadith", title: "Small consistent deeds", arabicText: "أَحَبُّ الأَعْمَالِ إِلَى اللَّهِ أَدْوَمُهَا وَإِنْ قَلَّ", shortText: "The most beloved deeds to Allah are those done consistently, even if small.", reference: "Sahih al-Bukhari and Sahih Muslim — narrated by Aisha", themes: ["Consistency", "Discipline"], readingTimeSeconds: 40, grade: "Sahih" },
+  { id: "hadith-007", type: "hadith", title: "A good word", arabicText: "الْكَلِمَةُ الطَّيِّبَةُ صَدَقَةٌ", shortText: "A good word is charity.", reference: "Sahih al-Bukhari and Sahih Muslim — narrated by Abu Hurairah", themes: ["Speech", "Charity"], readingTimeSeconds: 30, grade: "Sahih" },
+  { id: "hadith-008", type: "hadith", title: "The path of knowledge", arabicText: "مَنْ سَلَكَ طَرِيقًا يَلْتَمِسُ فِيهِ عِلْمًا سَهَّلَ اللَّهُ لَهُ بِهِ طَرِيقًا إِلَى الْجَنَّةِ", shortText: "Whoever travels a path seeking knowledge, Allah makes easy for them a path to Paradise.", reference: "Sahih Muslim — narrated by Abu Hurairah", themes: ["Knowledge"], readingTimeSeconds: 45, grade: "Sahih" },
 ];
 
 export const sahabaStories: LearningItem[] = dailyStoryBank;
@@ -63,11 +73,10 @@ export function getDailyLearningItem(date = new Date()) {
   return verseBank[dayOfYear % verseBank.length];
 }
 
-export function getDailyStoryItem(date = new Date()) {
-  return getDailyStory(date);
-}
+export function getDailyStoryItem(date = new Date()) { return getDailyStory(date); }
 
 export function getRecommendedLearningItem(mood?: string) {
   const moodTheme = mood === "sad" ? "Hope" : mood === "tired" ? "Patience" : mood === "grateful" ? "Gratitude" : "Discipline";
-  return learningItems.find((item) => item.themes.includes(moodTheme)) || learningItems[0];
+  const pool = learningItems.filter((item) => item.themes.includes(moodTheme));
+  return pool[0] || hadithBank.find((item) => item.themes.includes("Consistency")) || learningItems[0];
 }
