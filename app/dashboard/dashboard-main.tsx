@@ -14,12 +14,19 @@ import { DashboardHeader, LearningCard, LineIcon, formatDate, hijriLabel } from 
 import { CalmDashboardCard, todayDoneCount } from "./calm-cards";
 import { DailyDuaCard } from "./dua-card";
 
+type LeaderboardUser = { id: string; name?: string; username?: string; display_name?: string; current_score?: number; pillar_scores?: Record<string, number>; onboarding_draft?: Record<string, any> };
+
+function scoreFor(user: LeaderboardUser) { return Number(user.current_score ?? user.onboarding_draft?.current_score ?? 0); }
+function nameFor(user: LeaderboardUser, currentUserId: string) { if (user.id === currentUserId) return "You"; return user.display_name || user.username || user.onboarding_draft?.name || user.name || "Challenger"; }
+function initialsFor(name: string) { return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "C"; }
+
 export default function DashboardMain() {
   const router = useRouter();
   const [draft, setDraft] = useState<Record<string, any> | null>(null);
   const [userScore, setUserScore] = useState<number | null>(null);
   const [userPillars, setUserPillars] = useState<Record<string, number> | null>(null);
   const [userId, setUserId] = useState("");
+  const [leaderboardUsers, setLeaderboardUsers] = useState<LeaderboardUser[]>([]);
 
   useEffect(() => {
     async function load() {
@@ -33,6 +40,17 @@ export default function DashboardMain() {
       setDraft(loadedDraft);
       setUserScore(Number((record as any).current_score ?? loadedDraft.current_score ?? 0));
       setUserPillars(((record as any).pillar_scores || loadedDraft.pillar_scores || {}) as Record<string, number>);
+
+      const { data: rpcRows } = await supabase.rpc("get_leaderboard");
+      let mapped = (rpcRows || []) as LeaderboardUser[];
+      if (mapped.length === 0) {
+        const { data: rows } = await supabase.from("users").select("id,name,username,display_name,current_score,pillar_scores,onboarding_draft").order("current_score", { ascending: false }).limit(25);
+        mapped = (rows || []) as LeaderboardUser[];
+      }
+      if (!mapped.some((user) => user.id === data.user.id)) {
+        mapped.push({ id: data.user.id, name: loadedDraft.name, current_score: (record as any).current_score ?? loadedDraft.current_score ?? 0, pillar_scores: (record as any).pillar_scores ?? loadedDraft.pillar_scores ?? {}, onboarding_draft: loadedDraft });
+      }
+      setLeaderboardUsers(mapped.sort((a, b) => scoreFor(b) - scoreFor(a)));
     }
     load();
   }, [router]);
@@ -72,10 +90,35 @@ export default function DashboardMain() {
           <CalmDashboardCard href="/learning" icon={<LineIcon kind="book" />} title="Learning" subtitle="Today’s verse, du’a, hadith, and stories" action="Open Library" />
           <CalmDashboardCard href="/tools" icon={<LineIcon kind="tools" />} title="More" subtitle="Goals, settings, share cards, weekly review" action="Open More" />
         </section>
+        <LeaderboardPreview users={leaderboardUsers} currentUserId={userId} />
       </div>
       <BottomNav />
     </main>
   );
+}
+
+function LeaderboardPreview({ users, currentUserId }: { users: LeaderboardUser[]; currentUserId: string }) {
+  const sorted = [...users].sort((a, b) => scoreFor(b) - scoreFor(a));
+  const active = sorted.filter((user) => scoreFor(user) > 0);
+  const preview = (active.length ? active : sorted).slice(0, 5);
+  const yourPosition = Math.max(1, sorted.findIndex((user) => user.id === currentUserId) + 1);
+  return <section className={cardClass}>
+    <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
+      <div><p className="text-sm font-black text-emerald-700">Leaderboard</p><h2 className="text-3xl font-black text-slate-950">Compete in good</h2><p className="mt-1 text-sm font-bold text-slate-500">Your position: #{yourPosition}</p></div>
+      <Link href="/leaderboard" className="rounded-full bg-slate-950 px-5 py-3 text-sm font-black text-white">View full leaderboard →</Link>
+    </div>
+    <div className="mt-5 space-y-3">
+      {preview.length === 0 ? <p className="rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-600">Leaderboard opens when challengers start logging points.</p> : preview.map((user, index) => {
+        const name = nameFor(user, currentUserId);
+        const score = scoreFor(user);
+        const isYou = user.id === currentUserId;
+        return <div key={user.id} className={`flex items-center justify-between gap-3 rounded-2xl p-4 ${isYou ? "bg-emerald-50 ring-2 ring-emerald-300" : "bg-slate-50"}`}>
+          <div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-xs font-black text-white">{initialsFor(name)}</div><div><p className="font-black text-slate-950">#{index + 1} {name}</p><p className="text-xs font-bold text-slate-500">{score > 0 ? "Active challenger" : "Just Starting"}</p></div></div>
+          <span className="rounded-full bg-white px-4 py-2 text-sm font-black text-emerald-700">{score.toFixed(1)}/100</span>
+        </div>;
+      })}
+    </div>
+  </section>;
 }
 
 function PreChallenge({ draft, status, startNow }: { draft: Record<string, any>; status: { daysUntilStart: number }; startNow: () => void }) {
