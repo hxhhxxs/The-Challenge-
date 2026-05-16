@@ -9,7 +9,7 @@ import { ensureUserRecord } from "@/lib/supabase/ensure-user-record";
 import { cardClass, pageBg } from "@/lib/challenge-ui";
 import { formatStartDate, getProfileChallengeStatus } from "@/lib/challenge";
 import { computePillarStats } from "@/lib/pillars";
-import { getDailyLearningItem } from "@/lib/content-library";
+import { getDailyLearningItem, getDailyStoryItem } from "@/lib/content-library";
 import { DashboardHeader, LearningCard, LineIcon, formatDate, hijriLabel } from "./dashboard-components";
 import { CalmDashboardCard, todayDoneCount } from "./calm-cards";
 import { DailyDuaCard } from "./dua-card";
@@ -54,6 +54,7 @@ export default function DashboardMain() {
   const stats = computePillarStats(userPillars || draft.pillar_scores || {});
   const score = Number(userScore ?? draft.current_score ?? stats.totalScore ?? 0).toFixed(1);
   const learning = getDailyLearningItem(today);
+  const story = getDailyStoryItem(today);
 
   if (status.status === "pre_challenge") return <PreChallenge draft={draft} status={status} startNow={startNow} />;
   if (status.status === "completed") return <Completed totalDays={status.totalDays} score={score} />;
@@ -64,10 +65,11 @@ export default function DashboardMain() {
         <DashboardHeader draft={draft} router={router} marker="The Challenge" subtitle={`Day ${status.dayNumber} of ${status.totalDays} • ${formatDate(today)} • ${hijriLabel(today)}`} />
         <LearningCard item={learning} />
         <DailyDuaCard date={today} />
+        <LearningCard item={story} />
         <section className="grid gap-4 md:grid-cols-2">
           <CalmDashboardCard href="/check-in" icon={<LineIcon kind="check" />} title="Today’s Mission" subtitle={`${todayDoneCount(draft)} actions logged today`} action="Open Tracker" />
           <CalmDashboardCard href="/progress" icon={<LineIcon kind="chart" />} title="Score & Pace" subtitle={`${score}/100 • ${stats.overallRank}`} action="See Progress" />
-          <CalmDashboardCard href="/learning" icon={<LineIcon kind="book" />} title="Learning" subtitle="Today’s verse, hadith, and stories" action="Open Library" />
+          <CalmDashboardCard href="/learning" icon={<LineIcon kind="book" />} title="Learning" subtitle="Today’s verse, du’a, hadith, and stories" action="Open Library" />
           <CalmDashboardCard href="/tools" icon={<LineIcon kind="tools" />} title="More" subtitle="Goals, settings, share cards, weekly review" action="Open More" />
         </section>
       </div>
