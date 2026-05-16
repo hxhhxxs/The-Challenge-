@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { cardClass } from "@/lib/challenge-ui";
 import { getRankFromScore } from "@/lib/ranks";
 
@@ -6,11 +9,12 @@ export const FALLBACK_ARABIC = "فَإِنَّ مَعَ الْعُسْرِ يُ�
 export const FALLBACK_ENGLISH = "Indeed, with hardship comes ease.";
 export const FALLBACK_REF = "Qur'an 94:6";
 
-export function greetingFor(name?: string) {
+export function greetingFor(name?: string, date = new Date()) {
   const first = String(name || "Challenger").trim().split(/\s+/)[0] || "Challenger";
-  const hour = new Date().getHours();
+  const hour = date.getHours();
+
   if (hour >= 5 && hour < 12) return `Sabah al-khayr, ${first}`;
-  if (hour >= 12 && hour < 17) return `As-salamu alaykum, ${first}`;
+  if (hour >= 12 && hour < 17) return `Nahar mubarak, ${first}`;
   if (hour >= 17 && hour < 21) return `Masa' al-khayr, ${first}`;
   return `As-salamu alaykum, ${first}`;
 }
@@ -49,13 +53,22 @@ export function RankEmblem({ score }: { score: number }) {
 }
 
 export function DashboardHeader({ draft, subtitle, marker, router }: { draft: Record<string, any>; subtitle: string; marker: string; router: any }) {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const tick = () => setNow(new Date());
+    tick();
+    const timer = setInterval(tick, 60_000);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
     <header className="theme-hero rounded-[2rem] p-6 shadow-xl">
       <div className="flex items-center justify-between gap-4">
         <button onClick={() => router.push("/settings")} className="theme-accent-bg flex h-12 w-12 items-center justify-center rounded-full text-lg font-black text-slate-950 shadow-lg">{String(draft.name || "C").slice(0, 1)}</button>
         <div className="text-center">
           <p className="text-xs font-black theme-gradient-text">{marker}</p>
-          <h1 className="text-2xl font-black">{greetingFor(draft.name)}</h1>
+          <h1 className="text-2xl font-black">{greetingFor(draft.name, now)}</h1>
           <p className="text-sm font-bold opacity-75">{subtitle}</p>
         </div>
         <Link href="/profile" className="theme-pill flex h-12 w-12 items-center justify-center rounded-full text-sm font-black">{String(draft.name || "C").slice(0, 1)}</Link>
