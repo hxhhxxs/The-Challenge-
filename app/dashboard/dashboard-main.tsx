@@ -14,11 +14,19 @@ import { DashboardHeader, LearningCard, LineIcon, formatDate, hijriLabel } from 
 import { CalmDashboardCard, todayDoneCount } from "./calm-cards";
 import { DailyDuaCard } from "./dua-card";
 
-type LeaderboardUser = { id: string; name?: string; username?: string; display_name?: string; current_score?: number; pillar_scores?: Record<string, number>; onboarding_draft?: Record<string, any> };
+type LeaderboardUser = { id: string; name?: string; username?: string; display_name?: string; current_score?: number; pillar_scores?: Record<string, number>; onboarding_complete?: boolean; onboarding_draft?: Record<string, any> };
 
 function scoreFor(user: LeaderboardUser) { return Number(user.current_score ?? user.onboarding_draft?.current_score ?? 0); }
+function isActiveUser(user: LeaderboardUser) { const draft = user.onboarding_draft || {}; if (draft.deleted || draft.removed || draft.archived || draft.is_deleted || draft.account_status === "removed") return false; return user.onboarding_complete === true || draft.onboarding_complete === true || Boolean(draft.startDate); }
 function nameFor(user: LeaderboardUser, currentUserId: string) { if (user.id === currentUserId) return "You"; return user.display_name || user.username || user.onboarding_draft?.name || user.name || "Challenger"; }
 function initialsFor(name: string) { return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "C"; }
+
+async function fetchActiveLeaderboard(supabase: ReturnType<typeof createSupabaseBrowserClient>, currentUser?: LeaderboardUser) {
+  const { data: rows } = await supabase.from("users").select("id,name,username,display_name,current_score,pillar_scores,onboarding_complete,onboarding_draft").eq("onboarding_complete", true).order("current_score", { ascending: false }).limit(50);
+  let mapped = ((rows || []) as LeaderboardUser[]).filter(isActiveUser);
+  if (currentUser && !mapped.some((user) => user.id === currentUser.id)) mapped.push(currentUser);
+  return mapped.sort((a, b) => scoreFor(b) - scoreFor(a));
+}
 
 export default function DashboardMain() {
   const router = useRouter();
@@ -29,6 +37,7 @@ export default function DashboardMain() {
   const [leaderboardUsers, setLeaderboardUsers] = useState<LeaderboardUser[]>([]);
 
   useEffect(() => {
+    let timer: ReturnType<typeof setInterval> | null = null;
     async function load() {
       const supabase = createSupabaseBrowserClient();
       const { data } = await supabase.auth.getUser();
@@ -41,18 +50,19 @@ export default function DashboardMain() {
       setUserScore(Number((record as any).current_score ?? loadedDraft.current_score ?? 0));
       setUserPillars(((record as any).pillar_scores || loadedDraft.pillar_scores || {}) as Record<string, number>);
 
-      const { data: rpcRows } = await supabase.rpc("get_leaderboard");
-      let mapped = (rpcRows || []) as LeaderboardUser[];
-      if (mapped.length === 0) {
-        const { data: rows } = await supabase.from("users").select("id,name,username,display_name,current_score,pillar_scores,onboarding_draft").order("current_score", { ascending: false }).limit(25);
-        mapped = (rows || []) as LeaderboardUser[];
-      }
-      if (!mapped.some((user) => user.id === data.user.id)) {
-        mapped.push({ id: data.user.id, name: loadedDraft.name, current_score: (record as any).current_score ?? loadedDraft.current_score ?? 0, pillar_scores: (record as any).pillar_scores ?? loadedDraft.pillar_scores ?? {}, onboarding_draft: loadedDraft });
-      }
-      setLeaderboardUsers(mapped.sort((a, b) => scoreFor(b) - scoreFor(a)));
+      const currentUser: LeaderboardUser = { id: data.user.id, name: loadedDraft.name, current_score: (record as any).current_score ?? loadedDraft.current_score ?? 0, pillar_scores: (record as any).pillar_scores ?? loadedDraft.pillar_scores ?? {}, onboarding_complete: true, onboarding_draft: loadedDraft };
+      setLeaderboardUsers(await fetchActiveLeaderboard(supabase, currentUser));
+
+      timer = setInterval(async () => {
+        const { data: freshUser } = await supabase.from("users").select("id,name,username,display_name,current_score,pillar_scores,onboarding_complete,onboarding_draft").eq("id", data.user.id).maybeSingle();
+        const freshCurrent = (freshUser || currentUser) as LeaderboardUser;
+        setUserScore(scoreFor(freshCurrent));
+        setUserPillars((freshCurrent.pillar_scores || freshCurrent.onboarding_draft?.pillar_scores || {}) as Record<string, number>);
+        setLeaderboardUsers(await fetchActiveLeaderboard(supabase, freshCurrent));
+      }, 8000);
     }
     load();
+    return () => { if (timer) clearInterval(timer); };
   }, [router]);
 
   async function startNow() {
@@ -98,13 +108,14 @@ export default function DashboardMain() {
 }
 
 function LeaderboardPreview({ users, currentUserId }: { users: LeaderboardUser[]; currentUserId: string }) {
-  const sorted = [...users].sort((a, b) => scoreFor(b) - scoreFor(a));
+  const sorted = [...users].filter(isActiveUser).sort((a, b) => scoreFor(b) - scoreFor(a));
   const active = sorted.filter((user) => scoreFor(user) > 0);
   const preview = (active.length ? active : sorted).slice(0, 5);
-  const yourPosition = Math.max(1, sorted.findIndex((user) => user.id === currentUserId) + 1);
+  const yourIndex = sorted.findIndex((user) => user.id === currentUserId);
+  const yourPosition = yourIndex >= 0 ? yourIndex + 1 : 1;
   return <section className={cardClass}>
     <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
-      <div><p className="text-sm font-black text-emerald-700">Leaderboard</p><h2 className="text-3xl font-black text-slate-950">Compete in good</h2><p className="mt-1 text-sm font-bold text-slate-500">Your position: #{yourPosition}</p></div>
+      <div><p className="text-sm font-black text-emerald-700">Live leaderboard</p><h2 className="text-3xl font-black text-slate-950">Compete in good</h2><p className="mt-1 text-sm font-bold text-slate-500">Your position: #{yourPosition} • refreshes automatically</p></div>
       <Link href="/leaderboard" className="rounded-full bg-slate-950 px-5 py-3 text-sm font-black text-white">View full leaderboard →</Link>
     </div>
     <div className="mt-5 space-y-3">
