@@ -5,6 +5,7 @@ import { cardClass, pageBg } from "@/lib/challenge-ui";
 const groups = [
   { heading: "Settings", items: [
     { title: "Profile", href: "/profile", icon: "users", description: "View your identity, title, and 5 Pillars." },
+    { title: "My Niyyah", href: "/niyyah", icon: "heart", description: "Save the real reason you are doing this challenge." },
     { title: "Edit Plan", href: "/edit-plan", icon: "sliders", description: "Update calories, Qur'an, workouts, goals, and limits." },
     { title: "Settings", href: "/settings", icon: "sliders", description: "Update account, privacy, and challenge preferences." },
   ]},
@@ -60,6 +61,7 @@ export default function ToolsPage() {
 function LineIcon({ kind }: { kind: string }) {
   const paths: Record<string, string> = {
     target: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10ZM12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z",
+    heart: "M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z",
     moon: "M21 12.8A8.5 8.5 0 1 1 11.2 3 6.5 6.5 0 0 0 21 12.8Z",
     users: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
     share: "M18 8a3 3 0 1 0-2.8-4M6 12a3 3 0 1 0 0 .1M18 20a3 3 0 1 0-2.8-4M8.6 13.5l6.8 4M15.4 6.5l-6.8 4",
