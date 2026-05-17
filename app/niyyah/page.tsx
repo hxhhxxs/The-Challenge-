@@ -23,7 +23,7 @@ export default function NiyyahPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  useEffect(() => { async function load() { const supabase = createSupabaseBrowserClient(); const { data } = await supabase.auth.getUser(); if (!data.user) { router.push("/login"); return; } const record = await ensureUserRecord(data.user); const d = (record.onboarding_draft || {}) as Record<string, any>; const niyyah = d.niyyah || {}; setUserId(record.id); setDraft(d); setWhy(niyyah.why || (record as any).niyyah_why || ""); setWhoFor(niyyah.whoFor || (record as any).niyyah_for || []); setCustomWho(niyyah.customWho || ""); setVision(niyyah.vision || (record as any).niyyah_vision || ""); setStopped(niyyah.stoppedBefore || (record as any).niyyah_stopped_before || ""); setFear(niyyah.fear || (record as any).niyyah_fear || ""); } load(); }, [router]);
+  useEffect(() => { async function load() { const supabase = createSupabaseBrowserClient(); const { data } = await supabase.auth.getUser(); if (!data.user) { router.push("/login"); return; } const record = await ensureUserRecord(data.user); const d = (record.onboarding_draft || {}) as Record<string, any>; const niyyah = d.niyyah || {}; setUserId(record.id); setDraft(d); setWhy(niyyah.why || ""); setWhoFor(Array.isArray(niyyah.whoFor) ? niyyah.whoFor : []); setCustomWho(niyyah.customWho || ""); setVision(niyyah.vision || ""); setStopped(niyyah.stoppedBefore || ""); setFear(niyyah.fear || ""); } load(); }, [router]);
 
   function toggleWho(option: string) { setWhoFor((current) => current.includes(option) ? current.filter((x) => x !== option) : [...current, option]); }
   function valid() { if (why.trim().length < 40) return "Write at least 40 characters for why you are really doing this."; if (whoFor.length === 0 && customWho.trim().length < 2) return "Choose at least one person/reason you are doing this for."; if (vision.trim().length < 30) return "Write at least 30 characters for your 90-day vision."; if (stopped.trim().length < 30) return "Write at least 30 characters for what stopped you before."; if (fear.trim().length < 20) return "Write at least 20 characters for what scares you."; return ""; }
@@ -35,7 +35,7 @@ export default function NiyyahPage() {
     const supabase = createSupabaseBrowserClient();
     const niyyah = { why: why.trim(), whoFor, customWho: customWho.trim(), vision: vision.trim(), stoppedBefore: stopped.trim(), fear: fear.trim(), createdAt: draft.niyyah?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString() };
     const nextDraft = { ...draft, niyyah };
-    const { error: updateError } = await supabase.from("users").update({ onboarding_draft: nextDraft, niyyah_why: niyyah.why, niyyah_for: [...whoFor, ...(customWho.trim() ? [customWho.trim()] : [])], niyyah_vision: niyyah.vision, niyyah_stopped_before: niyyah.stoppedBefore, niyyah_fear: niyyah.fear }).eq("id", userId);
+    const { error: updateError } = await supabase.from("users").update({ onboarding_draft: nextDraft }).eq("id", userId);
     if (updateError) { setError(updateError.message); return; }
     setDraft(nextDraft);
     setMessage("Niyyah saved ✓");
