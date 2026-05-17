@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { BottomNav } from "@/components/BottomNav";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ensureUserRecord } from "@/lib/supabase/ensure-user-record";
 import { cardClass, inputClass, pageBg } from "@/lib/challenge-ui";
@@ -42,7 +43,7 @@ export default function WhyResetPage() {
   async function saveWhy() {
     setError("");
     if (goal1Why.trim().length < 20 || goal2Why.trim().length < 20) {
-      setError("Each why needs at least one real sentence, 20+ characters. Short answers like 's' or 'wf' are not saved.");
+      setError("Each why needs at least one real sentence, 20+ characters.");
       return;
     }
     const supabase = createSupabaseBrowserClient();
@@ -55,7 +56,7 @@ export default function WhyResetPage() {
   }
 
   if (!draft) {
-    return <main className={pageBg}><section className={`${cardClass} mx-auto max-w-xl`}>Loading your why…</section></main>;
+    return <main className={pageBg}><section className={`${cardClass} mx-auto max-w-xl`}>Loading your why…</section><BottomNav /></main>;
   }
 
   return (
@@ -64,12 +65,12 @@ export default function WhyResetPage() {
         <section className="rounded-[2rem] bg-slate-950 p-6 text-white">
           <p className="text-sm font-bold text-emerald-300">Reset Prompt</p>
           <h1 className="mt-1 text-4xl font-black">Why are you doing this?</h1>
-          <p className="mt-2 max-w-2xl text-slate-300">When motivation fades, your own words matter most. Weak old answers are hidden until you replace them with something meaningful.</p>
+          <p className="mt-2 max-w-2xl text-slate-300">When motivation fades, your own words matter most.</p>
         </section>
 
         <section className="rounded-[2rem] bg-amber-100 p-5 text-amber-950">
           <p className="text-sm font-black uppercase tracking-wide">Real reason required</p>
-          <p className="mt-1 text-sm font-semibold">Write at least one full sentence for each goal. This becomes the reminder your future self sees when discipline drops.</p>
+          <p className="mt-1 text-sm font-semibold">Write at least one full sentence for each goal.</p>
         </section>
 
         <section className="grid gap-4 md:grid-cols-2">
@@ -82,9 +83,10 @@ export default function WhyResetPage() {
 
         <div className="flex flex-wrap gap-3">
           <button onClick={saveWhy} className="rounded-full bg-emerald-600 px-5 py-3 font-black text-white">Save refreshed why</button>
-          <Link href="/dashboard" className="rounded-full bg-slate-950 px-5 py-3 font-black text-white">Back to dashboard</Link>
+          <Link href="/niyyah" className="rounded-full bg-emerald-100 px-5 py-3 font-black text-emerald-900">Edit full Niyyah</Link>
         </div>
       </div>
+      <BottomNav />
     </main>
   );
 }
@@ -96,19 +98,10 @@ function WhyCard({ title, task, endGoal, why, onChange }: { title: string; task:
       <p className="text-sm font-bold text-emerald-700">Personal goal</p>
       <h2 className="mt-1 text-2xl font-black">{title}</h2>
       <div className="mt-4 space-y-3">
-        <div className="rounded-2xl bg-slate-50 p-4">
-          <p className="text-xs font-black uppercase tracking-wide text-slate-500">Daily task</p>
-          <p className="mt-1 font-bold text-slate-950">{task}</p>
-        </div>
-        <div className="rounded-2xl bg-slate-50 p-4">
-          <p className="text-xs font-black uppercase tracking-wide text-slate-500">End goal</p>
-          <p className="mt-1 font-bold text-slate-950">{endGoal}</p>
-        </div>
+        <div className="rounded-2xl bg-slate-50 p-4"><p className="text-xs font-black uppercase tracking-wide text-slate-500">Daily task</p><p className="mt-1 font-bold text-slate-950">{task}</p></div>
+        <div className="rounded-2xl bg-slate-50 p-4"><p className="text-xs font-black uppercase tracking-wide text-slate-500">End goal</p><p className="mt-1 font-bold text-slate-950">{endGoal}</p></div>
       </div>
-      <label className="mt-5 block">
-        <span className="text-sm font-bold text-slate-700">Is this still your why?</span>
-        <textarea className={inputClass} rows={5} value={why} onChange={(e) => onChange(e.target.value)} placeholder="Example: Because I want to become disciplined enough to trust myself again and build a life that pleases Allah." />
-      </label>
+      <label className="mt-5 block"><span className="text-sm font-bold text-slate-700">Is this still your why?</span><textarea className={inputClass} rows={5} value={why} onChange={(e) => onChange(e.target.value)} placeholder="Because I want to trust myself again." /></label>
       <p className={`mt-2 text-xs font-bold ${strongEnough ? "text-emerald-700" : "text-amber-700"}`}>{strongEnough ? "Strong why ✓" : "Add a full sentence before saving."}</p>
     </div>
   );
