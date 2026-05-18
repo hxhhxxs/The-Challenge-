@@ -1,0 +1,69 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { BottomNav } from "@/components/BottomNav";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { ensureUserRecord } from "@/lib/supabase/ensure-user-record";
+import { cardClass, pageBg } from "@/lib/challenge-ui";
+
+type PlanKind = "diet" | "exercise" | "quran";
+type Option = { id: string; name: string; tag: string; description: string; details: string[]; recommended?: boolean; warning?: string };
+
+const dietOptions: Option[] = [
+  { id: "high_protein_med", name: "High-Protein Mediterranean", tag: "Recommended", description: "Protein every meal, vegetables, olive oil, fish/chicken, whole grains, and sustainable structure.", details: ["Sustainable for months", "Best for fat loss or lean gain", "Works with family meals"], recommended: true },
+  { id: "calorie_counting", name: "Calorie-Counting Flexible", tag: "Flexible", description: "Eat what you want as long as you hit calories, protein, and most meals stay whole-food based.", details: ["Good if you like numbers", "Allows social meals", "Requires honest tracking"] },
+  { id: "dash_whole_food", name: "DASH-Style Whole Foods", tag: "Heart-health", description: "Fruits, vegetables, lean protein, low-fat dairy, nuts, and lower sodium choices.", details: ["Great for blood pressure", "High fiber", "Simple food rules"] },
+];
+
+const exerciseOptions: Option[] = [
+  { id: "beginner_3day_full", name: "3-Day Full-Body", tag: "Recommended", description: "Mon/Wed/Fri strength sessions with walking support. Strong without burnout.", details: ["45 min sessions", "Beginner friendly", "Builds consistency first"], recommended: true },
+  { id: "upper_lower_4day", name: "4-Day Upper/Lower Split", tag: "Muscle focus", description: "A more structured routine for users who want strength and body-composition progress.", details: ["4 days/week", "50 min sessions", "Better for muscle gain"] },
+  { id: "walk_bodyweight", name: "Walking + Bodyweight", tag: "No equipment", description: "Daily walking plus simple bodyweight movements. Lowest barrier, easiest to sustain.", details: ["No gym needed", "High-weight friendly", "Easy to start today"] },
+];
+
+const quranOptions: Option[] = [
+  { id: "steady_builder", name: "Steady Builder", tag: "Recommended", description: "Balanced new memorization and review so you grow without losing what you already know.", details: ["Small new amount daily", "10-day murajaa cycle", "~45 min/day"], recommended: true },
+  { id: "reviewer", name: "Reviewer", tag: "Murajaa focus", description: "For users who already know Qur’an and want to protect it before adding more.", details: ["0 new required", "More daily review", "5-day cycle"] },
+  { id: "maintainer", name: "Maintainer", tag: "Light plan", description: "A realistic plan for busy weeks that keeps Qur’an alive without overloading you.", details: ["Short daily review", "14-day cycle", "~20 min/day"] },
+];
+
+export default function PlanSelectionPage() {
+  const router = useRouter();
+  const [userId, setUserId] = useState("");
+  const [draft, setDraft] = useState<Record<string, any>>({});
+  const [diet, setDiet] = useState("high_protein_med");
+  const [exercise, setExercise] = useState("beginner_3day_full");
+  const [quran, setQuran] = useState("steady_builder");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => { async function load() { const supabase = createSupabaseBrowserClient(); const { data } = await supabase.auth.getUser(); if (!data.user) { router.push("/login"); return; } const record = await ensureUserRecord(data.user); const d = (record.onboarding_draft || {}) as Record<string, any>; const selected = d.selectedPlans || {}; setUserId(record.id); setDraft(d); setDiet(selected.diet || "high_protein_med"); setExercise(selected.exercise || "beginner_3day_full"); setQuran(selected.quran || "steady_builder"); } load(); }, [router]);
+
+  const selectedNames = useMemo(() => ({ diet: dietOptions.find((x) => x.id === diet)?.name, exercise: exerciseOptions.find((x) => x.id === exercise)?.name, quran: quranOptions.find((x) => x.id === quran)?.name }), [diet, exercise, quran]);
+
+  async function save() {
+    setError(""); setMessage("");
+    if (!userId) return;
+    const selectedPlans = { diet, exercise, quran, selectedAt: new Date().toISOString(), names: selectedNames };
+    const nextDraft = { ...draft, selectedPlans };
+    const supabase = createSupabaseBrowserClient();
+    const { error: updateError } = await supabase.from("users").update({ onboarding_draft: nextDraft }).eq("id", userId);
+    if (updateError) { setError(updateError.message); return; }
+    setDraft(nextDraft);
+    setMessage("Plan selection saved ✓");
+    setTimeout(() => setMessage(""), 2500);
+  }
+
+  return <main className={pageBg}><div className="mx-auto max-w-6xl space-y-6"><section className="rounded-[2rem] bg-slate-950 p-6 text-white"><p className="text-sm font-bold text-emerald-300">Pick Your Plan</p><h1 className="mt-1 text-4xl font-black">Choose the path that fits your life.</h1><p className="mt-2 max-w-2xl text-slate-300">The app gives options, but your choice creates commitment. You can adjust later.</p></section>
+    <PlanGroup title="Diet Style" subtitle="Choose how you want to eat during the challenge." kind="diet" options={dietOptions} value={diet} setValue={setDiet} />
+    <PlanGroup title="Exercise Plan" subtitle="Choose your weekly movement rhythm." kind="exercise" options={exerciseOptions} value={exercise} setValue={setExercise} />
+    <PlanGroup title="Qur'an Plan" subtitle="Choose how you want to balance new memorization and murajaa." kind="quran" options={quranOptions} value={quran} setValue={setQuran} />
+    <section className={cardClass}><p className="text-sm font-black text-emerald-700">Your selected plan</p><h2 className="mt-1 text-2xl font-black">{selectedNames.diet} • {selectedNames.exercise} • {selectedNames.quran}</h2><p className="mt-2 text-sm font-bold text-slate-500">These selections save to your profile and will be used by the Log page and plan preview.</p><div aria-live="polite" className="mt-4">{error && <p className="rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}{message && <p className="rounded-xl bg-emerald-50 p-3 text-sm font-bold text-emerald-800">{message}</p>}</div><div className="mt-5 flex flex-wrap gap-3"><button onClick={save} className="rounded-full bg-emerald-600 px-6 py-3 font-black text-white">Confirm My Plan</button><Link href="/edit-plan" className="rounded-full bg-slate-100 px-6 py-3 font-black text-slate-800">Edit targets</Link></div></section>
+  </div><BottomNav /></main>;
+}
+
+function PlanGroup({ title, subtitle, options, value, setValue }: { title: string; subtitle: string; kind: PlanKind; options: Option[]; value: string; setValue: (value: string) => void }) {
+  return <section className={cardClass}><p className="text-sm font-black text-emerald-700">{title}</p><div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between"><div><h2 className="text-3xl font-black">{title}</h2><p className="mt-1 text-sm font-bold text-slate-500">{subtitle}</p></div><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">Pick one</span></div><div className="mt-5 grid gap-4 lg:grid-cols-3">{options.map((option) => <button key={option.id} onClick={() => setValue(option.id)} className={`rounded-[1.5rem] border p-5 text-left transition hover:-translate-y-1 ${value === option.id ? "border-emerald-600 bg-emerald-50 ring-4 ring-emerald-100" : "border-slate-200 bg-slate-50"}`}><div className="flex items-center justify-between gap-3"><span className={`rounded-full px-3 py-1 text-xs font-black ${option.recommended ? "bg-emerald-600 text-white" : "bg-white text-slate-700"}`}>{option.tag}</span><span className="text-xl font-black">{value === option.id ? "●" : "○"}</span></div><h3 className="mt-4 text-xl font-black text-slate-950">{option.name}</h3><p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{option.description}</p><ul className="mt-4 space-y-2">{option.details.map((detail) => <li key={detail} className="text-sm font-bold text-slate-700">• {detail}</li>)}</ul>{option.warning && <p className="mt-4 rounded-xl bg-amber-100 p-3 text-xs font-black text-amber-900">{option.warning}</p>}</button>)}</div></section>;
+}
