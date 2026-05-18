@@ -6,6 +6,7 @@ const groups = [
   { heading: "Settings", items: [
     { title: "Profile", href: "/profile", icon: "users", description: "View your identity, title, and 5 Pillars." },
     { title: "My Niyyah", href: "/niyyah", icon: "heart", description: "Save the real reason you are doing this challenge." },
+    { title: "Pick My Plan", href: "/plan-selection", icon: "target", description: "Choose your diet, exercise, and Qur'an plan options." },
     { title: "Edit Plan", href: "/edit-plan", icon: "sliders", description: "Update calories, Qur'an, workouts, goals, and limits." },
     { title: "Settings", href: "/settings", icon: "sliders", description: "Update account, privacy, and challenge preferences." },
   ]},
