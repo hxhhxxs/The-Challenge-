@@ -12,6 +12,7 @@ const groups = [
   ]},
   { heading: "Daily Tools", items: [
     { title: "My Custom Goals & Tasks", href: "/goals", icon: "target", description: "Add extra personal goals and custom daily tasks." },
+    { title: "Private Gallery", href: "/gallery", icon: "camera", description: "Save private challenge photos and memories by pillar." },
     { title: "Photo Food Log", href: "/food-photo", icon: "camera", description: "Use a meal photo to help log food." },
     { title: "Implementation Intentions", href: "/intentions", icon: "target", description: "Set your if-then plans for hard moments." },
     { title: "Monthly Limits", href: "/limits", icon: "sliders", description: "Track spending, restaurants, screen time, and limits." },
