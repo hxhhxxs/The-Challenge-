@@ -10,11 +10,13 @@ import { cardClass, dayOfChallenge, daysBetween, pageBg } from "@/lib/challenge-
 import { getRankFromScore } from "@/lib/ranks";
 import { computePillarStats } from "@/lib/pillars";
 
+type PillarPointTotals = { quwwah: number; imaan: number; sabr: number; niyyah: number; adab: number };
+
 function cleanText(value: unknown) { return String(value || "").trim(); }
 function safeNum(value: unknown) { const n = Number(value); return Number.isFinite(n) ? n : 0; }
 function round3(n: number) { return Math.round(n * 1000) / 1000; }
-function emptyPillars() { return { quwwah: 0, imaan: 0, sabr: 0, niyyah: 0, adab: 0 }; }
-function addComputed(acc: Record<string, number>, p: any) {
+function emptyPillars(): PillarPointTotals { return { quwwah: 0, imaan: 0, sabr: 0, niyyah: 0, adab: 0 }; }
+function addComputed(acc: PillarPointTotals, p: any): PillarPointTotals {
   acc.quwwah += safeNum(p?.body);
   acc.imaan += safeNum(p?.quran);
   acc.sabr += safeNum(p?.discipline);
@@ -22,13 +24,13 @@ function addComputed(acc: Record<string, number>, p: any) {
   acc.adab += safeNum(p?.character);
   return acc;
 }
-function normalizePillars(p: Record<string, number>) { return { quwwah: round3(safeNum(p.quwwah)), imaan: round3(safeNum(p.imaan)), sabr: round3(safeNum(p.sabr)), niyyah: round3(safeNum(p.niyyah)), adab: round3(safeNum(p.adab)) }; }
-function aggregateFromLogs(rows: Array<{ computed_points?: any }>) { return normalizePillars(rows.reduce((acc, row) => addComputed(acc, row.computed_points || {}), emptyPillars())); }
-function aggregateFromDraftCheckins(draft: Record<string, any>) {
+function normalizePillars(p: Partial<PillarPointTotals> | Record<string, unknown>): PillarPointTotals { return { quwwah: round3(safeNum(p.quwwah)), imaan: round3(safeNum(p.imaan)), sabr: round3(safeNum(p.sabr)), niyyah: round3(safeNum(p.niyyah)), adab: round3(safeNum(p.adab)) }; }
+function aggregateFromLogs(rows: Array<{ computed_points?: any }>): PillarPointTotals { return normalizePillars(rows.reduce<PillarPointTotals>((acc, row) => addComputed(acc, row.computed_points || {}), emptyPillars())); }
+function aggregateFromDraftCheckins(draft: Record<string, any>): PillarPointTotals {
   const checkins = draft?.checkins && typeof draft.checkins === "object" ? Object.values(draft.checkins) : [];
-  return normalizePillars(checkins.reduce((acc: Record<string, number>, checkin: any) => addComputed(acc, checkin?.computedPoints || checkin?.computed_points || {}), emptyPillars()));
+  return normalizePillars(checkins.reduce<PillarPointTotals>((acc, checkin: any) => addComputed(acc, checkin?.computedPoints || checkin?.computed_points || {}), emptyPillars()));
 }
-function totalFromPillars(p: Record<string, number>) { return round3(safeNum(p.quwwah) + safeNum(p.imaan) + safeNum(p.sabr) + safeNum(p.niyyah) + safeNum(p.adab)); }
+function totalFromPillars(p: Partial<PillarPointTotals> | Record<string, unknown>) { return round3(safeNum(p.quwwah) + safeNum(p.imaan) + safeNum(p.sabr) + safeNum(p.niyyah) + safeNum(p.adab)); }
 function NiyyahBlock({ label, text }: { label: string; text: string }) { return <div className="rounded-2xl bg-slate-50 p-4"><p className="text-xs font-black uppercase tracking-wide text-slate-500">{label}</p><p className="mt-2 text-sm font-bold leading-6 text-slate-950">{text}</p></div>; }
 function PointCard({ label, arabic, value, description }: { label: string; arabic: string; value: number; description: string }) { return <div className="rounded-2xl bg-slate-50 p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-wide text-emerald-700">{arabic}</p><h3 className="mt-1 text-lg font-black text-slate-950">{label}</h3></div><p className="rounded-full bg-white px-3 py-1 text-sm font-black text-slate-950">{value.toFixed(3)} pts</p></div><p className="mt-2 text-xs font-bold leading-5 text-slate-500">{description}</p></div>; }
 
@@ -36,7 +38,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const [draft, setDraft] = useState<Record<string, any> | null>(null);
   const [userScore, setUserScore] = useState<number | null>(null);
-  const [userPillars, setUserPillars] = useState<Record<string, number> | null>(null);
+  const [userPillars, setUserPillars] = useState<PillarPointTotals | null>(null);
   const [sourceNote, setSourceNote] = useState("Saved check-ins");
 
   useEffect(() => {
@@ -46,7 +48,7 @@ export default function ProfilePage() {
       if (!data.user) { router.push("/login"); return; }
       const record = await ensureUserRecord(data.user);
       const loadedDraft = (record.onboarding_draft || {}) as Record<string, any>;
-      const savedPillars = normalizePillars(((record as any).pillar_scores || loadedDraft.pillar_scores || {}) as Record<string, number>);
+      const savedPillars = normalizePillars(((record as any).pillar_scores || loadedDraft.pillar_scores || {}) as Record<string, unknown>);
       const savedScore = Number((record as any).current_score ?? loadedDraft.current_score ?? 0);
 
       const { data: logs } = await supabase
@@ -89,7 +91,7 @@ export default function ProfilePage() {
   if (!draft) return <main className={pageBg}><section className={`${cardClass} mx-auto max-w-xl`}>Loading profile…</section><BottomNav /></main>;
 
   const rawPillars = userPillars || draft.pillar_scores || {};
-  const pillarTotals = normalizePillars(rawPillars as Record<string, number>);
+  const pillarTotals = normalizePillars(rawPillars as Record<string, unknown>);
   const stats = computePillarStats(pillarTotals);
   const overallRank = getRankFromScore(stats.overallScore);
   const currentScore = Number(userScore ?? draft.current_score ?? stats.totalScore ?? 0);
