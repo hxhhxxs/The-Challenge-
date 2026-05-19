@@ -16,20 +16,12 @@ function cleanText(value: unknown) { return String(value || "").trim(); }
 function safeNum(value: unknown) { const n = Number(value); return Number.isFinite(n) ? n : 0; }
 function round3(n: number) { return Math.round(n * 1000) / 1000; }
 function emptyPillars(): PillarPointTotals { return { quwwah: 0, imaan: 0, sabr: 0, niyyah: 0, adab: 0 }; }
-function addComputed(acc: PillarPointTotals, p: any): PillarPointTotals {
-  acc.quwwah += safeNum(p?.body);
-  acc.imaan += safeNum(p?.quran);
-  acc.sabr += safeNum(p?.discipline);
-  acc.niyyah += safeNum(p?.personal);
-  acc.adab += safeNum(p?.character);
-  return acc;
-}
+function sumPoints(entries?: Array<{ points?: number }>) { return (entries || []).reduce((total, entry) => total + safeNum(entry?.points), 0); }
+function pointsFromLog(log: any) { const computed = log?.computed_points || log?.computedPoints || {}; if (safeNum(computed.total) > 0) return computed; const entries = log?.entries || {}; const body = sumPoints(entries.calories) + sumPoints(entries.water) + sumPoints(entries.steps) + sumPoints(entries.exercise); const quran = sumPoints(entries.quranMemorized) + sumPoints(entries.quranReviewed); const discipline = sumPoints(entries.money) + sumPoints(entries.screen); const personal = log?.goals ? (log.goals.goal1 === "done" ? 0.05 : log.goals.goal1 === "partial" ? 0.025 : 0) + (log.goals.goal2 === "done" ? 0.05 : log.goals.goal2 === "partial" ? 0.025 : 0) : 0; const character = log?.reflection?.mood || log?.reflection?.wentWell || log?.reflection?.slipped ? 0.01 : 0; return { body: round3(body), quran: round3(quran), discipline: round3(discipline), personal: round3(personal), character: round3(character), total: round3(body + quran + discipline + personal + character) }; }
+function addComputed(acc: PillarPointTotals, p: any): PillarPointTotals { acc.quwwah += safeNum(p?.body); acc.imaan += safeNum(p?.quran); acc.sabr += safeNum(p?.discipline); acc.niyyah += safeNum(p?.personal); acc.adab += safeNum(p?.character); return acc; }
 function normalizePillars(p: Partial<PillarPointTotals> | Record<string, unknown>): PillarPointTotals { return { quwwah: round3(safeNum(p.quwwah)), imaan: round3(safeNum(p.imaan)), sabr: round3(safeNum(p.sabr)), niyyah: round3(safeNum(p.niyyah)), adab: round3(safeNum(p.adab)) }; }
-function aggregateFromLogs(rows: Array<{ computed_points?: any }>): PillarPointTotals { return normalizePillars(rows.reduce<PillarPointTotals>((acc, row) => addComputed(acc, row.computed_points || {}), emptyPillars())); }
-function aggregateFromDraftCheckins(draft: Record<string, any>): PillarPointTotals {
-  const checkins = draft?.checkins && typeof draft.checkins === "object" ? Object.values(draft.checkins) : [];
-  return normalizePillars(checkins.reduce<PillarPointTotals>((acc, checkin: any) => addComputed(acc, checkin?.computedPoints || checkin?.computed_points || {}), emptyPillars()));
-}
+function aggregateFromLogs(rows: any[]): PillarPointTotals { return normalizePillars(rows.reduce<PillarPointTotals>((acc, row) => addComputed(acc, pointsFromLog(row)), emptyPillars())); }
+function aggregateFromDraftCheckins(draft: Record<string, any>): PillarPointTotals { const checkins = draft?.checkins && typeof draft.checkins === "object" ? Object.values(draft.checkins) : []; return aggregateFromLogs(checkins as any[]); }
 function totalFromPillars(p: Partial<PillarPointTotals> | Record<string, unknown>) { return round3(safeNum(p.quwwah) + safeNum(p.imaan) + safeNum(p.sabr) + safeNum(p.niyyah) + safeNum(p.adab)); }
 function NiyyahBlock({ label, text }: { label: string; text: string }) { return <div className="rounded-2xl bg-slate-50 p-4"><p className="text-xs font-black uppercase tracking-wide text-slate-500">{label}</p><p className="mt-2 text-sm font-bold leading-6 text-slate-950">{text}</p></div>; }
 function PointCard({ label, arabic, value, description }: { label: string; arabic: string; value: number; description: string }) { return <div className="rounded-2xl bg-slate-50 p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-wide text-emerald-700">{arabic}</p><h3 className="mt-1 text-lg font-black text-slate-950">{label}</h3></div><p className="rounded-full bg-white px-3 py-1 text-sm font-black text-slate-950">{value.toFixed(3)} pts</p></div><p className="mt-2 text-xs font-bold leading-5 text-slate-500">{description}</p></div>; }
@@ -41,52 +33,7 @@ export default function ProfilePage() {
   const [userPillars, setUserPillars] = useState<PillarPointTotals | null>(null);
   const [sourceNote, setSourceNote] = useState("Saved check-ins");
 
-  useEffect(() => {
-    async function load() {
-      const supabase = createSupabaseBrowserClient();
-      const { data } = await supabase.auth.getUser();
-      if (!data.user) { router.push("/login"); return; }
-      const record = await ensureUserRecord(data.user);
-      const loadedDraft = (record.onboarding_draft || {}) as Record<string, any>;
-      const savedPillars = normalizePillars(((record as any).pillar_scores || loadedDraft.pillar_scores || {}) as Record<string, unknown>);
-      const savedScore = Number((record as any).current_score ?? loadedDraft.current_score ?? 0);
-
-      const { data: logs } = await supabase
-        .from("daily_logs")
-        .select("computed_points")
-        .eq("user_id", record.id);
-
-      const logPillars = aggregateFromLogs((logs || []) as Array<{ computed_points?: any }>);
-      const draftPillars = aggregateFromDraftCheckins(loadedDraft);
-      const logScore = totalFromPillars(logPillars);
-      const draftScore = totalFromPillars(draftPillars);
-      const savedPillarScore = totalFromPillars(savedPillars);
-
-      let finalPillars = savedPillars;
-      let finalScore = Math.max(savedScore, savedPillarScore);
-      let finalSource = "Saved profile totals";
-
-      if (logScore > finalScore && logScore >= draftScore) {
-        finalPillars = logPillars;
-        finalScore = logScore;
-        finalSource = "Rebuilt from saved daily logs";
-      } else if (draftScore > finalScore) {
-        finalPillars = draftPillars;
-        finalScore = draftScore;
-        finalSource = "Rebuilt from today's saved check-ins";
-      }
-
-      if (finalScore > savedScore || totalFromPillars(savedPillars) === 0) {
-        await supabase.from("users").update({ current_score: finalScore, pillar_scores: finalPillars }).eq("id", record.id);
-      }
-
-      setSourceNote(finalSource);
-      setDraft(loadedDraft);
-      setUserScore(finalScore);
-      setUserPillars(finalPillars);
-    }
-    load();
-  }, [router]);
+  useEffect(() => { async function load() { const supabase = createSupabaseBrowserClient(); const { data } = await supabase.auth.getUser(); if (!data.user) { router.push("/login"); return; } const record = await ensureUserRecord(data.user); const loadedDraft = (record.onboarding_draft || {}) as Record<string, any>; const savedPillars = normalizePillars(((record as any).pillar_scores || loadedDraft.pillar_scores || {}) as Record<string, unknown>); const savedScore = Number((record as any).current_score ?? loadedDraft.current_score ?? 0); const { data: logs } = await supabase.from("daily_logs").select("*").eq("user_id", record.id); const logPillars = aggregateFromLogs((logs || []) as any[]); const draftPillars = aggregateFromDraftCheckins(loadedDraft); const logScore = totalFromPillars(logPillars); const draftScore = totalFromPillars(draftPillars); const savedPillarScore = totalFromPillars(savedPillars); let finalPillars = savedPillars; let finalScore = Math.max(savedScore, savedPillarScore); let finalSource = "Saved profile totals"; if (logScore > finalScore && logScore >= draftScore) { finalPillars = logPillars; finalScore = logScore; finalSource = "Rebuilt from saved daily logs"; } else if (draftScore > finalScore) { finalPillars = draftPillars; finalScore = draftScore; finalSource = "Rebuilt from today's saved check-ins"; } if (finalScore > savedScore || totalFromPillars(savedPillars) === 0) await supabase.from("users").update({ current_score: finalScore, pillar_scores: finalPillars }).eq("id", record.id); setSourceNote(finalSource); setDraft(loadedDraft); setUserScore(finalScore); setUserPillars(finalPillars); } load(); }, [router]);
 
   if (!draft) return <main className={pageBg}><section className={`${cardClass} mx-auto max-w-xl`}>Loading profile…</section><BottomNav /></main>;
 
