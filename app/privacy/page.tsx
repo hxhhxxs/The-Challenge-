@@ -1,0 +1,6 @@
+import Link from "next/link";
+import { cardClass, pageBg } from "@/lib/challenge-ui";
+
+export default function PrivacyPage() {
+  return <main className={pageBg}><section className={`${cardClass} mx-auto max-w-3xl`}><p className="text-sm font-black text-emerald-700">The Challenge</p><h1 className="mt-2 text-4xl font-black">Privacy Policy</h1><div className="mt-6 space-y-4 text-sm font-semibold leading-7 text-slate-700"><p>The Challenge collects the information needed to create your account, build your plan, track your logs, and show your progress.</p><p>This may include your name, email, username, date of birth, goals, challenge settings, logs, reflections, and optional photos or notes you choose to add.</p><p>Your personal logs are private by default. Leaderboard visibility and partner sharing should only show the information you choose to make visible.</p><p>We do not sell personal data. Service providers used to run the app may process data only as needed to provide the service.</p><p>You can request account deletion or data export from Settings as those tools are finalized.</p></div><Link href="/signup" className="mt-6 inline-block rounded-full bg-emerald-600 px-5 py-3 font-black text-white">Back to signup</Link></section></main>;
+}
