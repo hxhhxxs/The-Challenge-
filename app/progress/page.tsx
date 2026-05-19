@@ -58,7 +58,12 @@ export default function ProgressPage() {
     setDraft(d); setLogs(merged); setPillars(finalPillars); setScore(finalScore);
   } load(); }, [router]);
 
-  const history = useMemo(() => buildHistory(logs, draft?.startDate || key(new Date()), draft ? getProfileChallengeStatus(draft).totalDays || 90 : 90, Math.max(1, draft ? getProfileChallengeStatus(draft).dayNumber || 1 : 1)), [logs, draft]);
+  const history = useMemo(() => {
+    const status = draft ? getProfileChallengeStatus(draft) : null;
+    const totalDays = status?.totalDays || 90;
+    const day = status && status.status !== "pre_challenge" ? status.dayNumber : 1;
+    return buildHistory(logs, draft?.startDate || key(new Date()), totalDays, Math.max(1, day));
+  }, [logs, draft]);
   if (!draft) return <main className={pageBg}><section className={`${cardClass} mx-auto max-w-xl`}>Loading progress…</section><BottomNav /></main>;
 
   const status = getProfileChallengeStatus(draft);
