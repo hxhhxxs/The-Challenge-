@@ -74,8 +74,8 @@ export default function LearningPage() {
 
     if (result.error && typeof window !== "undefined") {
       window.localStorage.setItem(`saved_learning_${userId}`, JSON.stringify(nextSaved));
-      setSaveMessage("Saved locally. Create user_saved_items table for cloud sync.");
-      setTimeout(() => setSaveMessage(""), 2500);
+      setSaveMessage(isSaved ? "Removed from this device" : "Saved on this device");
+      setTimeout(() => setSaveMessage(""), 2200);
     }
   }
 
