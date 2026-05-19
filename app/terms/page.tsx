@@ -1,0 +1,6 @@
+import Link from "next/link";
+import { cardClass, pageBg } from "@/lib/challenge-ui";
+
+export default function TermsPage() {
+  return <main className={pageBg}><section className={`${cardClass} mx-auto max-w-3xl`}><p className="text-sm font-black text-emerald-700">The Challenge</p><h1 className="mt-2 text-4xl font-black">Terms of Use</h1><div className="mt-6 space-y-4 text-sm font-semibold leading-7 text-slate-700"><p>The Challenge is a personal growth and habit-tracking tool. It helps users plan, log, and reflect on goals related to faith, health, discipline, personal growth, and character.</p><p>The app is not medical, legal, religious, or financial advice. Diet, exercise, medication, fasting, and health-related decisions should be made with qualified professionals when needed.</p><p>Users are responsible for the accuracy of information they enter and for choosing goals that are safe, realistic, and appropriate for their circumstances.</p><p>We may update these terms as the product grows. Continued use means you accept the latest version.</p></div><Link href="/signup" className="mt-6 inline-block rounded-full bg-emerald-600 px-5 py-3 font-black text-white">Back to signup</Link></section></main>;
+}
