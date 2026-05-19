@@ -17,6 +17,10 @@ function scoreFor(user: LeaderboardUser) { return Number(user.current_score ?? u
 function pillarsFor(user: LeaderboardUser) { return (user.pillar_scores || user.onboarding_draft?.pillar_scores || {}) as Record<string, number>; }
 function titleFor(user: LeaderboardUser) { return scoreFor(user) > 0 ? computePillarStats(pillarsFor(user)).title : "Just Starting"; }
 function initials(user: LeaderboardUser, currentUserId: string) { return safeName(user, currentUserId).split(/\s+/).slice(0, 2).map((x: string) => x[0]).join("").toUpperCase() || "C"; }
+function isLikelyTestUser(user: LeaderboardUser) {
+  const text = `${user.username || ""} ${user.display_name || ""} ${user.name || ""} ${user.onboarding_draft?.name || ""}`.toLowerCase();
+  return text.includes("test") || text.includes("demo") || /_[a-f0-9]{4,}$/i.test(String(user.username || ""));
+}
 
 export default function LeaderboardPage() {
   const router = useRouter();
@@ -35,10 +39,10 @@ export default function LeaderboardPage() {
       const loadedDraft = (record.onboarding_draft || {}) as Record<string, any>;
       setDraft(loadedDraft);
       const { data: rows } = await supabase.from("users").select("id,name,username,display_name,current_score,pillar_scores,onboarding_draft").order("current_score", { ascending: false });
-      let mapped = (rows || []) as LeaderboardUser[];
+      let mapped = ((rows || []) as LeaderboardUser[]).filter((user) => !isLikelyTestUser(user) || user.id === data.user.id);
       if (!mapped.some((user) => user.id === data.user.id)) mapped.push({ id: data.user.id, name: loadedDraft.name, current_score: (record as any).current_score ?? loadedDraft.current_score ?? 0, pillar_scores: (record as any).pillar_scores ?? loadedDraft.pillar_scores ?? {}, onboarding_draft: loadedDraft });
       setUsers(mapped);
-      setLoadMessage(`${mapped.length} challengers found • updates live`);
+      setLoadMessage(`${mapped.filter((user) => scoreFor(user) > 0).length} active challengers`);
     }
     load();
     const channel = supabase.channel("leaderboard-live").on("postgres_changes", { event: "*", schema: "public", table: "users" }, () => load()).subscribe();
@@ -48,7 +52,7 @@ export default function LeaderboardPage() {
 
   const sortedUsers = useMemo(() => [...users].sort((a, b) => scoreFor(b) - scoreFor(a)), [users]);
   const activeUsers = sortedUsers.filter((user) => scoreFor(user) > 0);
-  const startingUsers = sortedUsers.filter((user) => scoreFor(user) <= 0);
+  const publicRows = activeUsers.slice(0, 3);
 
   if (!draft) return <main className={pageBg}><section className={`${cardClass} mx-auto max-w-xl`}>Loading leaderboard…</section><BottomNav /></main>;
 
@@ -56,12 +60,12 @@ export default function LeaderboardPage() {
   const yourStats = computePillarStats(pillarsFor(yourUser));
   const yourScore = scoreFor(yourUser);
   const yourRankInfo = getRankFromScore(yourStats.overallScore);
-  const yourPosition = Math.max(1, sortedUsers.findIndex((user) => user.id === currentUserId) + 1);
+  const yourPosition = activeUsers.findIndex((user) => user.id === currentUserId) + 1;
+  const showCompetition = activeUsers.length >= 3;
 
-  return <main className={pageBg}><div className="mx-auto max-w-6xl space-y-6"><section className="rounded-[2rem] bg-slate-950 p-6 text-white"><p className="text-sm font-bold text-emerald-300">Leaderboard</p><h1 className="mt-1 text-4xl font-black">Compete in good.</h1><p className="mt-2 text-slate-300">{loadMessage}</p></section>
-    <section className={cardClass}><div className="rounded-2xl bg-emerald-50 p-5"><div className="flex flex-col justify-between gap-4 md:flex-row md:items-center"><div><p className="text-sm font-bold text-slate-500">Your position</p><p className="text-xl font-black text-slate-950">#{yourPosition} You</p><p className="mt-1 text-sm font-black text-emerald-800">{yourScore > 0 ? yourStats.title : "Just Starting"}</p></div><div className="flex flex-wrap items-center gap-3"><span className={`rounded-full px-5 py-3 font-black ${yourRankInfo.color}`}>{yourStats.overallRank}</span><span className="rounded-full bg-white px-5 py-3 font-black text-emerald-700">{yourScore.toFixed(1)}/100</span></div></div></div></section>
-    <section className={cardClass}><div className="flex flex-col justify-between gap-3 md:flex-row md:items-end"><div><p className="text-sm font-black text-emerald-700">Active leaderboard</p><h2 className="text-3xl font-black">{activeUsers.length} active challengers</h2></div><p className="text-sm font-bold text-slate-500">Sorted by current score</p></div>{activeUsers.length === 0 ? <p className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-600">Leaderboard opens when challengers start logging points. Be the first to move.</p> : <div className="mt-5 space-y-3">{activeUsers.map((user, index) => <LeaderboardRow key={user.id} user={user} index={index} currentUserId={currentUserId} />)}</div>}</section>
-    {startingUsers.length > 0 && <section className={cardClass}><p className="text-sm font-black text-slate-500">Just starting</p><h2 className="mt-1 text-2xl font-black">{startingUsers.length} challengers have not logged points yet</h2><div className="mt-4 grid gap-3 md:grid-cols-2">{startingUsers.slice(0, 12).map((user) => <div key={user.id} className="rounded-2xl bg-slate-50 p-4"><p className="font-black text-slate-950">{safeName(user, currentUserId)}</p><p className="text-sm font-bold text-slate-500">Just Starting • 0.0/100</p></div>)}</div></section>}
+  return <main className={pageBg}><div className="mx-auto max-w-6xl space-y-6"><section className="rounded-[2rem] bg-slate-950 p-6 text-white"><p className="text-sm font-bold text-emerald-300">Leaderboard</p><h1 className="mt-1 text-4xl font-black">Compete in good.</h1><p className="mt-2 text-slate-300">{loadMessage} • refreshes automatically</p></section>
+    <section className={cardClass}><div className="rounded-2xl bg-emerald-50 p-5"><div className="flex flex-col justify-between gap-4 md:flex-row md:items-center"><div><p className="text-sm font-bold text-slate-500">Your position</p><p className="text-xl font-black text-slate-950">{yourPosition > 0 ? `#${yourPosition} You` : "You are not ranked yet"}</p><p className="mt-1 text-sm font-black text-emerald-800">{yourScore > 0 ? yourStats.title : "Log points to enter the leaderboard"}</p></div><div className="flex flex-wrap items-center gap-3"><span className={`rounded-full px-5 py-3 font-black ${yourRankInfo.color}`}>{yourStats.overallRank}</span><span className="rounded-full bg-white px-5 py-3 font-black text-emerald-700">{yourScore.toFixed(1)}/100</span></div></div></div></section>
+    <section className={cardClass}><div className="flex flex-col justify-between gap-3 md:flex-row md:items-end"><div><p className="text-sm font-black text-emerald-700">Active leaderboard</p><h2 className="text-3xl font-black">{showCompetition ? "Top challengers" : "Waiting for more challengers"}</h2></div><p className="text-sm font-bold text-slate-500">Sorted by current score</p></div>{showCompetition ? <div className="mt-5 space-y-3">{publicRows.map((user, index) => <LeaderboardRow key={user.id} user={user} index={index} currentUserId={currentUserId} />)}{yourPosition > 3 && <LeaderboardRow user={yourUser} index={yourPosition - 1} currentUserId={currentUserId} />}</div> : <div className="mt-5 rounded-[2rem] bg-slate-50 p-6 text-center"><p className="text-2xl font-black text-slate-950">Leaderboard opens when 3+ challengers have logged.</p><p className="mx-auto mt-2 max-w-xl text-sm font-semibold text-slate-600">For now, focus on your own score. Once more people have real points, this page will show the top 3 plus your row.</p><Link href="/check-in" className="mt-5 inline-block rounded-full bg-emerald-600 px-5 py-3 font-black text-white">Log today</Link></div>}</section>
     <div className="flex flex-wrap gap-3"><Link href="/progress" className="inline-block rounded-full bg-emerald-600 px-5 py-3 font-black text-white">View Progress</Link><Link href="/check-in" className="inline-block rounded-full bg-emerald-100 px-5 py-3 font-black text-emerald-900">Log today</Link></div>
   </div><BottomNav /></main>;
 }
