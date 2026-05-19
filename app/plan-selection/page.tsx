@@ -29,6 +29,28 @@ const quranOptions: Option[] = [
   { id: "maintainer", name: "Maintainer", tag: "Light plan", description: "A realistic plan for busy weeks that keeps Qur’an alive without overloading you.", details: ["Short daily review", "14-day cycle", "~20 min/day"] },
 ];
 
+function num(value: unknown, fallback: number) { const n = Number(value); return Number.isFinite(n) && n > 0 ? n : fallback; }
+function targetsFor(draft: Record<string, any>, exercise: string, quran: string) {
+  const exerciseDays = exercise === "upper_lower_4day" ? 4 : exercise === "walk_bodyweight" ? 6 : 3;
+  const workoutMinutes = exercise === "upper_lower_4day" ? 50 : exercise === "walk_bodyweight" ? 30 : 45;
+  const dailyMemorizeGoal = quran === "reviewer" || quran === "maintainer" ? 0 : num(draft.dailyMemorizeGoal || draft.quranDailyTarget, 1);
+  const dailyReviewGoal = quran === "reviewer" ? 3 : quran === "maintainer" ? 1 : num(draft.dailyReviewGoal || draft.quranReviewTarget, 2);
+  const murajaaCycleDays = quran === "reviewer" ? 5 : quran === "maintainer" ? 14 : num(draft.murajaaCycleDays, 10);
+  return {
+    calorieTarget: String(num(draft.calorieTarget, 2200)),
+    waterTarget: String(num(draft.waterTarget, 8)),
+    stepTarget: String(num(draft.stepTarget, 10000)),
+    workoutMinutes: String(workoutMinutes),
+    workoutDays: String(exerciseDays),
+    dailyMemorizeGoal: String(dailyMemorizeGoal),
+    dailyReviewGoal: String(dailyReviewGoal),
+    murajaaCycleDays,
+    nutritionTargets: { calories: num(draft.calorieTarget, 2200), water: num(draft.waterTarget, 8), steps: num(draft.stepTarget, 10000) },
+    exerciseSchedule: ["Monday", "Wednesday", "Friday"].slice(0, Math.min(3, exerciseDays)).map((day) => ({ day, name: exercise === "walk_bodyweight" ? "Walking + bodyweight" : exercise === "upper_lower_4day" ? "Upper/Lower strength" : "Full-body strength", minutes: workoutMinutes })),
+    quranTargets: { newPerDay: dailyMemorizeGoal, reviewPerDay: dailyReviewGoal, murajaaCycleDays },
+  };
+}
+
 export default function PlanSelectionPage() {
   const router = useRouter();
   const [userId, setUserId] = useState("");
@@ -41,29 +63,30 @@ export default function PlanSelectionPage() {
 
   useEffect(() => { async function load() { const supabase = createSupabaseBrowserClient(); const { data } = await supabase.auth.getUser(); if (!data.user) { router.push("/login"); return; } const record = await ensureUserRecord(data.user); const d = (record.onboarding_draft || {}) as Record<string, any>; const selected = d.selectedPlans || {}; setUserId(record.id); setDraft(d); setDiet(selected.diet || "high_protein_med"); setExercise(selected.exercise || "beginner_3day_full"); setQuran(selected.quran || "steady_builder"); } load(); }, [router]);
 
-  const selectedNames = useMemo(() => ({ diet: dietOptions.find((x) => x.id === diet)?.name, exercise: exerciseOptions.find((x) => x.id === exercise)?.name, quran: quranOptions.find((x) => x.id === quran)?.name }), [diet, exercise, quran]);
+  const selectedNames = useMemo(() => ({ diet: dietOptions.find((x) => x.id === diet)?.name || "High-Protein Mediterranean", exercise: exerciseOptions.find((x) => x.id === exercise)?.name || "3-Day Full-Body", quran: quranOptions.find((x) => x.id === quran)?.name || "Steady Builder" }), [diet, exercise, quran]);
 
   async function save() {
     setError(""); setMessage("");
     if (!userId) return;
     const selectedPlans = { diet, exercise, quran, selectedAt: new Date().toISOString(), names: selectedNames };
-    const nextDraft = { ...draft, selectedPlans };
+    const planTargets = targetsFor(draft, exercise, quran);
+    const nextDraft = { ...draft, ...planTargets, selectedPlans };
     const supabase = createSupabaseBrowserClient();
     const { error: updateError } = await supabase.from("users").update({ onboarding_draft: nextDraft }).eq("id", userId);
     if (updateError) { setError(updateError.message); return; }
     setDraft(nextDraft);
-    setMessage("Plan selection saved ✓");
-    setTimeout(() => setMessage(""), 2500);
+    setMessage("Plan selection saved ✓ Returning to Log…");
+    setTimeout(() => router.push("/check-in"), 700);
   }
 
-  return <main className={pageBg}><div className="mx-auto max-w-6xl space-y-6"><section className="rounded-[2rem] bg-slate-950 p-6 text-white"><p className="text-sm font-bold text-emerald-300">Pick Your Plan</p><h1 className="mt-1 text-4xl font-black">Choose the path that fits your life.</h1><p className="mt-2 max-w-2xl text-slate-300">The app gives options, but your choice creates commitment. You can adjust later.</p></section>
+  return <main className={pageBg}><div className="mx-auto max-w-6xl space-y-6"><section className="rounded-[2rem] bg-slate-950 p-6 text-white"><p className="text-sm font-bold text-emerald-300">Pick Your Plan</p><h1 className="mt-1 text-4xl font-black">Choose the path that fits your life.</h1><p className="mt-2 max-w-2xl text-slate-300">Pick one diet plan, one exercise plan, and one Qur’an plan before logging points.</p></section>
     <PlanGroup title="Diet Style" subtitle="Choose how you want to eat during the challenge." kind="diet" options={dietOptions} value={diet} setValue={setDiet} />
     <PlanGroup title="Exercise Plan" subtitle="Choose your weekly movement rhythm." kind="exercise" options={exerciseOptions} value={exercise} setValue={setExercise} />
     <PlanGroup title="Qur'an Plan" subtitle="Choose how you want to balance new memorization and murajaa." kind="quran" options={quranOptions} value={quran} setValue={setQuran} />
-    <section className={cardClass}><p className="text-sm font-black text-emerald-700">Your selected plan</p><h2 className="mt-1 text-2xl font-black">{selectedNames.diet} • {selectedNames.exercise} • {selectedNames.quran}</h2><p className="mt-2 text-sm font-bold text-slate-500">These selections save to your profile and will be used by the Log page and plan preview.</p><div aria-live="polite" className="mt-4">{error && <p className="rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}{message && <p className="rounded-xl bg-emerald-50 p-3 text-sm font-bold text-emerald-800">{message}</p>}</div><div className="mt-5 flex flex-wrap gap-3"><button onClick={save} className="rounded-full bg-emerald-600 px-6 py-3 font-black text-white">Confirm My Plan</button><Link href="/edit-plan" className="rounded-full bg-slate-100 px-6 py-3 font-black text-slate-800">Edit targets</Link></div></section>
+    <section className={cardClass}><p className="text-sm font-black text-emerald-700">Your selected plan</p><h2 className="mt-1 text-2xl font-black">{selectedNames.diet} • {selectedNames.exercise} • {selectedNames.quran}</h2><p className="mt-2 text-sm font-bold text-slate-500">These selections save to your profile and unlock correct Log-page scoring.</p><div aria-live="polite" className="mt-4">{error && <p className="rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}{message && <p className="rounded-xl bg-emerald-50 p-3 text-sm font-bold text-emerald-800">{message}</p>}</div><div className="mt-5 flex flex-wrap gap-3"><button onClick={save} className="rounded-full bg-emerald-600 px-6 py-3 font-black text-white">Confirm My Plan</button><Link href="/edit-plan" className="rounded-full bg-slate-100 px-6 py-3 font-black text-slate-800">Edit targets</Link><Link href="/check-in" className="rounded-full bg-white px-6 py-3 font-black text-slate-800">Back to Log</Link></div></section>
   </div><BottomNav /></main>;
 }
 
 function PlanGroup({ title, subtitle, options, value, setValue }: { title: string; subtitle: string; kind: PlanKind; options: Option[]; value: string; setValue: (value: string) => void }) {
-  return <section className={cardClass}><p className="text-sm font-black text-emerald-700">{title}</p><div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between"><div><h2 className="text-3xl font-black">{title}</h2><p className="mt-1 text-sm font-bold text-slate-500">{subtitle}</p></div><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">Pick one</span></div><div className="mt-5 grid gap-4 lg:grid-cols-3">{options.map((option) => <button key={option.id} onClick={() => setValue(option.id)} className={`rounded-[1.5rem] border p-5 text-left transition hover:-translate-y-1 ${value === option.id ? "border-emerald-600 bg-emerald-50 ring-4 ring-emerald-100" : "border-slate-200 bg-slate-50"}`}><div className="flex items-center justify-between gap-3"><span className={`rounded-full px-3 py-1 text-xs font-black ${option.recommended ? "bg-emerald-600 text-white" : "bg-white text-slate-700"}`}>{option.tag}</span><span className="text-xl font-black">{value === option.id ? "●" : "○"}</span></div><h3 className="mt-4 text-xl font-black text-slate-950">{option.name}</h3><p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{option.description}</p><ul className="mt-4 space-y-2">{option.details.map((detail) => <li key={detail} className="text-sm font-bold text-slate-700">• {detail}</li>)}</ul>{option.warning && <p className="mt-4 rounded-xl bg-amber-100 p-3 text-xs font-black text-amber-900">{option.warning}</p>}</button>)}</div></section>;
+  return <section className={cardClass}><div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between"><div><p className="text-sm font-black text-emerald-700">{title}</p><h2 className="text-3xl font-black">{title}</h2><p className="mt-1 text-sm font-bold text-slate-500">{subtitle}</p></div><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">Pick one</span></div><div className="mt-5 grid gap-4 lg:grid-cols-3">{options.map((option) => <button key={option.id} onClick={() => setValue(option.id)} className={`rounded-[1.5rem] border p-5 text-left transition hover:-translate-y-1 ${value === option.id ? "border-emerald-600 bg-emerald-50 ring-4 ring-emerald-100" : "border-slate-200 bg-slate-50"}`}><div className="flex items-center justify-between gap-3"><span className={`rounded-full px-3 py-1 text-xs font-black ${option.recommended ? "bg-emerald-600 text-white" : "bg-white text-slate-700"}`}>{option.tag}</span><span className="text-xl font-black">{value === option.id ? "●" : "○"}</span></div><h3 className="mt-4 text-xl font-black text-slate-950">{option.name}</h3><p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{option.description}</p><ul className="mt-4 space-y-2">{option.details.map((detail) => <li key={detail} className="text-sm font-bold text-slate-700">• {detail}</li>)}</ul>{option.warning && <p className="mt-4 rounded-xl bg-amber-100 p-3 text-xs font-black text-amber-900">{option.warning}</p>}</button>)}</div></section>;
 }
