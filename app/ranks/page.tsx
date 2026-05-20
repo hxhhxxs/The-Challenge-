@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BottomNav } from "@/components/BottomNav";
 import { cardClass, pageBg } from "@/lib/challenge-ui";
 
 const ranks = [
@@ -85,23 +86,17 @@ export default function RanksPage() {
               </tbody>
             </table>
           </div>
-          <p className="mt-4 rounded-2xl bg-amber-50 p-4 text-sm font-semibold text-amber-900">
-            Final adjustment later: Challenger should probably start at 90, and 100 can unlock a special “Perfect Challenger” badge.
-          </p>
-        </section>
-
-        <section className="rounded-[2rem] bg-emerald-100 p-5 text-emerald-950">
-          <p className="font-black">Next backend step</p>
-          <p className="mt-1 text-sm font-semibold">
-            Add a helper function: getRankFromScore(score) → rank, division, progressToNext. Then show it on Dashboard and Leaderboard.
+          <p className="mt-4 rounded-2xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">
+            Your rank updates automatically as your saved score grows across the challenge.
           </p>
         </section>
 
         <div className="flex flex-wrap gap-3">
-          <Link href="/dashboard" className="rounded-full bg-slate-950 px-5 py-3 font-black text-white">Back to dashboard</Link>
+          <Link href="/progress" className="rounded-full bg-slate-950 px-5 py-3 font-black text-white">View my progress</Link>
           <Link href="/leaderboard" className="rounded-full bg-emerald-600 px-5 py-3 font-black text-white">Leaderboard</Link>
         </div>
       </div>
+      <BottomNav />
     </main>
   );
 }
