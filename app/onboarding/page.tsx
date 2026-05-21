@@ -1,5 +1,5 @@
-import OnboardingCoachFlow from "./onboarding-coach-flow";
+import OnboardingFixedFlow from "./onboarding-fixed-flow";
 
 export default function OnboardingPage() {
-  return <OnboardingCoachFlow />;
+  return <OnboardingFixedFlow />;
 }
