@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { BottomNav } from "@/components/BottomNav";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ensureUserRecord } from "@/lib/supabase/ensure-user-record";
@@ -31,8 +31,7 @@ function targetsFor(draft: Record<string, any>, exercise: string, quran: string)
 
 export default function PlanSelectionPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const fromOnboarding = searchParams.get("from") === "onboarding";
+  const [fromOnboarding, setFromOnboarding] = useState(false);
   const [userId, setUserId] = useState("");
   const [draft, setDraft] = useState<Record<string, any>>({});
   const [diet, setDiet] = useState("high_protein_med");
@@ -40,7 +39,7 @@ export default function PlanSelectionPage() {
   const [quran, setQuran] = useState("steady_builder");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  useEffect(() => { async function load() { const supabase = createSupabaseBrowserClient(); const { data } = await supabase.auth.getUser(); if (!data.user) { router.push("/login"); return; } const record = await ensureUserRecord(data.user); const d = (record.onboarding_draft || {}) as Record<string, any>; const selected = d.selectedPlans || {}; setUserId(record.id); setDraft(d); setDiet(selected.diet || "high_protein_med"); setExercise(selected.exercise || "beginner_3day_full"); setQuran(selected.quran || "steady_builder"); } load(); }, [router]);
+  useEffect(() => { setFromOnboarding(new URLSearchParams(window.location.search).get("from") === "onboarding"); async function load() { const supabase = createSupabaseBrowserClient(); const { data } = await supabase.auth.getUser(); if (!data.user) { router.push("/login"); return; } const record = await ensureUserRecord(data.user); const d = (record.onboarding_draft || {}) as Record<string, any>; const selected = d.selectedPlans || {}; setUserId(record.id); setDraft(d); setDiet(selected.diet || "high_protein_med"); setExercise(selected.exercise || "beginner_3day_full"); setQuran(selected.quran || "steady_builder"); } load(); }, [router]);
   const selectedNames = useMemo(() => ({ diet: dietOptions.find((x) => x.id === diet)?.name || "High-Protein Mediterranean", exercise: exerciseOptions.find((x) => x.id === exercise)?.name || "3-Day Full-Body", quran: quranOptions.find((x) => x.id === quran)?.name || "Steady Builder" }), [diet, exercise, quran]);
   async function save() { setError(""); setMessage(""); if (!userId) return; const selectedPlans = { diet, exercise, quran, selectedAt: new Date().toISOString(), names: selectedNames }; const planTargets = targetsFor(draft, exercise, quran); const nextDraft = { ...draft, ...planTargets, selectedPlans }; const supabase = createSupabaseBrowserClient(); const { error: updateError } = await supabase.from("users").update({ onboarding_draft: nextDraft }).eq("id", userId); if (updateError) { setError(updateError.message); return; } setDraft(nextDraft); setMessage(fromOnboarding ? "Plan saved ✓ Returning to final preview…" : "Plan saved ✓ Returning to Log…"); setTimeout(() => router.push(fromOnboarding ? "/onboarding/plan" : "/check-in"), 700); }
   return <main className={pageBg}><div className="mx-auto max-w-6xl space-y-6"><section className="rounded-[2rem] bg-slate-950 p-6 text-white"><p className="text-sm font-bold text-emerald-300">Pick Your Plan</p><h1 className="mt-1 text-4xl font-black">Choose the path that fits your life.</h1><p className="mt-2 max-w-2xl text-slate-300">Pick one diet plan, one exercise plan, and one Qur’an plan before final confirmation.</p></section><PlanGroup title="Diet Style" subtitle="Choose how you want to eat during the challenge." kind="diet" options={dietOptions} value={diet} setValue={setDiet} /><PlanGroup title="Exercise Plan" subtitle="Choose your weekly movement rhythm." kind="exercise" options={exerciseOptions} value={exercise} setValue={setExercise} /><PlanGroup title="Qur'an Plan" subtitle="Choose how you want to balance new memorization and murajaa." kind="quran" options={quranOptions} value={quran} setValue={setQuran} /><section className={cardClass}><p className="text-sm font-black text-emerald-700">Your selected plan</p><h2 className="mt-1 text-2xl font-black">{selectedNames.diet} • {selectedNames.exercise} • {selectedNames.quran}</h2><p className="mt-2 text-sm font-bold text-slate-500">These selections save to your profile and appear on the final preview.</p><div aria-live="polite" className="mt-4">{error && <p className="rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}{message && <p className="rounded-xl bg-emerald-50 p-3 text-sm font-bold text-emerald-800">{message}</p>}</div><div className="mt-5 flex flex-wrap gap-3"><button onClick={save} className="rounded-full bg-emerald-600 px-6 py-3 font-black text-white">Confirm My Plan</button><Link href="/edit-plan" className="rounded-full bg-slate-100 px-6 py-3 font-black text-slate-800">Edit targets</Link><Link href={fromOnboarding ? "/onboarding" : "/check-in"} className="rounded-full bg-white px-6 py-3 font-black text-slate-800">{fromOnboarding ? "Back to onboarding" : "Back to Log"}</Link></div></section></div><BottomNav /></main>;
